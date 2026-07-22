@@ -76,14 +76,21 @@ typedef struct {
 } TextRange;
 
 typedef struct {
+  size_t function;
+  size_t next_call;
+} ComponentFrame;
+
+typedef struct {
   FunctionList *functions;
   const NameIndex *names;
   size_t *indices;
   size_t *lowlinks;
   size_t *components;
   size_t *stack;
+  ComponentFrame *frames;
   unsigned char *on_stack;
   size_t stack_count;
+  size_t frame_count;
   size_t next_index;
   size_t next_component;
 } ComponentSearch;
@@ -826,6 +833,7 @@ static void component_search_free(ComponentSearch *search) {
   free(search->lowlinks);
   free(search->components);
   free(search->stack);
+  free(search->frames);
   free(search->on_stack);
   *search = (ComponentSearch){0};
 }
@@ -835,9 +843,10 @@ static int component_search_alloc(ComponentSearch *search, size_t count) {
   search->lowlinks = malloc(count * sizeof(*search->lowlinks));
   search->components = malloc(count * sizeof(*search->components));
   search->stack = malloc(count * sizeof(*search->stack));
+  search->frames = malloc(count * sizeof(*search->frames));
   search->on_stack = calloc(count, sizeof(*search->on_stack));
   return search->indices != NULL && search->lowlinks != NULL && search->components != NULL &&
-         search->stack != NULL && search->on_stack != NULL;
+         search->stack != NULL && search->frames != NULL && search->on_stack != NULL;
 }
 
 static SlStatus component_search_init(ComponentSearch *search, FunctionList *functions,
@@ -858,22 +867,8 @@ static size_t function_index(const ComponentSearch *search, const FunctionFact *
   return (size_t)(function - search->functions->items);
 }
 
-static void component_visit(ComponentSearch *search, size_t current);
-
 static void lower_lowlink(ComponentSearch *search, size_t current, size_t candidate) {
   if (candidate < search->lowlinks[current]) search->lowlinks[current] = candidate;
-}
-
-static void component_visit_edge(ComponentSearch *search, size_t current, const char *call) {
-  FunctionFact *target = name_index_find(search->names, call);
-  if (target == NULL) return;
-  const size_t next = function_index(search, target);
-  if (search->indices[next] == SIZE_MAX) {
-    component_visit(search, next);
-    lower_lowlink(search, current, search->lowlinks[next]);
-    return;
-  }
-  if (search->on_stack[next]) lower_lowlink(search, current, search->indices[next]);
 }
 
 static void component_pop(ComponentSearch *search, size_t root) {
@@ -886,16 +881,42 @@ static void component_pop(ComponentSearch *search, size_t root) {
   search->next_component++;
 }
 
-static void component_visit(ComponentSearch *search, size_t current) {
+static void component_enter(ComponentSearch *search, size_t current) {
   search->indices[current] = search->next_index;
   search->lowlinks[current] = search->next_index++;
   search->stack[search->stack_count++] = current;
   search->on_stack[current] = 1;
-  FunctionFact *function = &search->functions->items[current];
-  for (size_t call = 0; call < function->call_count; call++) {
-    component_visit_edge(search, current, function->calls[call]);
+  search->frames[search->frame_count++] = (ComponentFrame){.function = current};
+}
+
+static int component_advance(ComponentSearch *search, ComponentFrame *frame) {
+  FunctionFact *function = &search->functions->items[frame->function];
+  if (frame->next_call == function->call_count) return 0;
+  const char *call = function->calls[frame->next_call++];
+  FunctionFact *target = name_index_find(search->names, call);
+  if (target == NULL) return 1;
+  const size_t next = function_index(search, target);
+  if (search->indices[next] == SIZE_MAX) return component_enter(search, next), 1;
+  if (search->on_stack[next]) lower_lowlink(search, frame->function, search->indices[next]);
+  return 1;
+}
+
+static void component_finish_frame(ComponentSearch *search) {
+  const size_t current = search->frames[--search->frame_count].function;
+  if (search->frame_count > 0) {
+    const size_t parent = search->frames[search->frame_count - 1].function;
+    lower_lowlink(search, parent, search->lowlinks[current]);
   }
   if (search->lowlinks[current] == search->indices[current]) component_pop(search, current);
+}
+
+static void component_visit(ComponentSearch *search, size_t current) {
+  component_enter(search, current);
+  while (search->frame_count > 0) {
+    ComponentFrame *frame = &search->frames[search->frame_count - 1];
+    if (component_advance(search, frame)) continue;
+    component_finish_frame(search);
+  }
 }
 
 static SlStatus assign_components(FunctionList *functions, const NameIndex *names,
@@ -1336,11 +1357,17 @@ static SlStatus project_name_index_allocate(ProjectNameIndex *index, size_t coun
   return index->slots == NULL ? SL_OUT_OF_MEMORY : SL_OK;
 }
 
+static void project_index_free(ProjectIndex *index) {
+  free(index->locals.slots);
+  free(index->exports.slots);
+  *index = (ProjectIndex){0};
+}
+
 static SlStatus project_index_build(const SlReport *report, ProjectIndex *index) {
   SlStatus status = project_name_index_allocate(&index->locals, project_declaration_count(report));
   if (status == SL_OK)
     status = project_name_index_allocate(&index->exports, project_export_count(report));
-  if (status != SL_OK) return free(index->locals.slots), status;
+  if (status != SL_OK) return project_index_free(index), status;
   for (size_t file = 0; file < report->file_count; file++) {
     project_index_local_file(&index->locals, &report->files[file]);
     project_index_export_file(&index->exports, &report->files[file]);
@@ -1460,8 +1487,7 @@ static SlStatus build_project_calls(SlReport *report) {
   if (status != SL_OK) return status;
   status = allocate_project_calls(report);
   if (status == SL_OK) status = resolve_project_calls(report, &index);
-  free(index.locals.slots);
-  free(index.exports.slots);
+  project_index_free(&index);
   return status;
 }
 

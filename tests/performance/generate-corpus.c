@@ -45,6 +45,13 @@ static int generate_files(const char *directory, const Source *source) {
   return 1;
 }
 
+static int write_chain_function(FILE *file, size_t index, size_t count) {
+  const int last = index + 1 == count;
+  if (last) return fprintf(file, "export function fn%04zu(): number { return 0; }\n", index);
+  return fprintf(file, "export function fn%04zu(): number { return fn%04zu(); }\n", index,
+                 index + 1);
+}
+
 static int generate_many_functions(const char *directory) {
   const size_t capacity = strlen(directory) + 32;
   char *path = malloc(capacity);
@@ -53,10 +60,10 @@ static int generate_many_functions(const char *directory) {
   FILE *file = fopen(path, "wb");
   free(path);
   if (file == NULL) return 0;
+  const size_t function_count = 1000;
   int complete = 1;
-  for (size_t index = 0; index < 1000; index++) {
-    const int written =
-        fprintf(file, "export function fn%04zu(): number { return %zu; }\n", index, index);
+  for (size_t index = 0; index < function_count; index++) {
+    const int written = write_chain_function(file, index, function_count);
     if (written < 0) complete = 0;
   }
   if (fclose(file) != 0) complete = 0;
