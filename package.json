@@ -1,0 +1,17 @@
+{
+  "name": "struct-legibility",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "./scripts/build.sh runtime/cli.ts -o .build/struct-legibility",
+    "test": "./scripts/check.sh",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@yowainwright/tqs": "github:yowainwright/tqs#a587f389ca08f9f739c7e0bc1f17bd02ad730dec"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}
