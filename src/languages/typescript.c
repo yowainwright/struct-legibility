@@ -32,11 +32,15 @@ static TSNode variable_declarator(TSNode node) {
   return (TSNode){0};
 }
 
+static int is_function_value(TSNode node) {
+  return node_is(node, "arrow_function") || node_is(node, "function_expression") ||
+         node_is(node, "generator_function");
+}
+
 static int variable_is_function(TSNode node) {
   const TSNode declarator = variable_declarator(node);
   const TSNode value = ts_node_child_by_field_name(declarator, "value", 5);
-  return node_is(value, "arrow_function") || node_is(value, "function_expression") ||
-         node_is(value, "generator_function");
+  return is_function_value(value);
 }
 
 static SlDeclarationKind declaration_kind(TSNode input) {
@@ -50,6 +54,7 @@ static SlDeclarationKind declaration_kind(TSNode input) {
       node_is(node, "lexical_declaration") || node_is(node, "variable_declaration");
   if (variable && variable_is_function(node)) return SL_DECLARATION_FUNCTION;
   if (variable) return SL_DECLARATION_CONSTANT;
+  if (node_is(input, "export_statement") && is_function_value(node)) return SL_DECLARATION_FUNCTION;
   if (node_is(node, "function_declaration")) return SL_DECLARATION_FUNCTION;
   if (node_is(node, "generator_function_declaration")) return SL_DECLARATION_FUNCTION;
   return SL_DECLARATION_NONE;
@@ -86,8 +91,8 @@ static int binding_owner(TSNode parent, TSNode child) {
   if (node_is(parent, "arrow_function")) return field_equals(parent, "parameter", 9, child);
   if (node_is(parent, "variable_declarator")) return field_equals(parent, "name", 4, child);
   if (node_is(parent, "catch_clause")) return field_equals(parent, "parameter", 9, child);
-  const int parameter = node_is(parent, "required_parameter") ||
-                        node_is(parent, "optional_parameter");
+  const int parameter =
+      node_is(parent, "required_parameter") || node_is(parent, "optional_parameter");
   if (!parameter) return 0;
   return field_equals(parent, "name", 4, child) || field_equals(parent, "pattern", 7, child);
 }
@@ -102,8 +107,8 @@ static int binding_pattern_parent(TSNode parent, TSNode child) {
 }
 
 static int is_binding_pattern_leaf(TSNode node) {
-  const int leaf = node_is(node, "identifier") ||
-                   node_is(node, "shorthand_property_identifier_pattern");
+  const int leaf =
+      node_is(node, "identifier") || node_is(node, "shorthand_property_identifier_pattern");
   if (!leaf) return 0;
   TSNode child = node;
   for (TSNode parent = ts_node_parent(child); !ts_node_is_null(parent);
@@ -281,6 +286,27 @@ static int is_exported(TSNode input) { return node_is(input, "export_statement")
 
 static int is_entrypoint_name(const char *name) { return strcmp(name, "main") == 0; }
 
+static const SlImportFact *find_import(const SlFileFact *file, const char *local_name) {
+  const SlImportFact *match = NULL;
+  for (size_t index = 0; index < file->import_count; index++) {
+    const SlImportFact *candidate = &file->imports[index];
+    if (strcmp(candidate->local_name, local_name) != 0) continue;
+    if (match != NULL) return NULL;
+    match = candidate;
+  }
+  return match;
+}
+
+static int resolve_call(const SlCallResolutionRequest *request, SlResolvedFunction *result) {
+  const SlFileFact *file = request->caller_file;
+  const char *name = request->called_name;
+  if (request->lookup(request->lookup_context, file->resolved_path, name, 0, result)) return 1;
+  const SlImportFact *import = find_import(file, name);
+  if (import == NULL || import->target_path == NULL) return 0;
+  return request->lookup(request->lookup_context, import->target_path, import->imported_name, 1,
+                         result);
+}
+
 const SlLanguagePack sl_typescript_pack = {
     "typescript",
     "could not parse TypeScript source",
@@ -306,4 +332,5 @@ const SlLanguagePack sl_typescript_pack = {
     implicit_export_name,
     is_exported,
     is_entrypoint_name,
+    resolve_call,
 };

@@ -45,11 +45,30 @@ static int generate_files(const char *directory, const Source *source) {
   return 1;
 }
 
+static int generate_many_functions(const char *directory) {
+  const size_t capacity = strlen(directory) + 32;
+  char *path = malloc(capacity);
+  if (path == NULL) return 0;
+  snprintf(path, capacity, "%s/many-functions.ts", directory);
+  FILE *file = fopen(path, "wb");
+  free(path);
+  if (file == NULL) return 0;
+  int complete = 1;
+  for (size_t index = 0; index < 1000; index++) {
+    const int written =
+        fprintf(file, "export function fn%04zu(): number { return %zu; }\n", index, index);
+    if (written < 0) complete = 0;
+  }
+  if (fclose(file) != 0) complete = 0;
+  return complete;
+}
+
 int main(int argument_count, char **arguments) {
   if (argument_count != 3) return 2;
   Source source = {0};
   if (!read_source(arguments[1], &source)) return 1;
-  const int generated = generate_files(arguments[2], &source);
+  const int files_generated = generate_files(arguments[2], &source);
+  const int functions_generated = generate_many_functions(arguments[2]);
   free(source.bytes);
-  return generated ? 0 : 1;
+  return files_generated && functions_generated ? 0 : 1;
 }

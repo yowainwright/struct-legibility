@@ -1,6 +1,8 @@
 #ifndef STRUCT_LEGIBILITY_LANGUAGE_H
 #define STRUCT_LEGIBILITY_LANGUAGE_H
 
+#include "struct_legibility.h"
+
 #include <stddef.h>
 #include <tree_sitter/api.h>
 
@@ -11,6 +13,22 @@ typedef enum {
   SL_DECLARATION_CONSTANT = 2,
   SL_DECLARATION_FUNCTION = 3
 } SlDeclarationKind;
+
+typedef struct {
+  const SlFileFact *file;
+  const SlDeclarationFact *declaration;
+} SlResolvedFunction;
+
+typedef int (*SlSymbolLookup)(const void *context, const char *path, const char *name, int exported,
+                              SlResolvedFunction *result);
+
+typedef struct {
+  const SlReport *project;
+  const SlFileFact *caller_file;
+  const char *called_name;
+  const void *lookup_context;
+  SlSymbolLookup lookup;
+} SlCallResolutionRequest;
 
 typedef struct {
   const char *id;
@@ -37,10 +55,13 @@ typedef struct {
   const char *(*implicit_export_name)(TSNode input);
   int (*is_exported)(TSNode input);
   int (*is_entrypoint_name)(const char *name);
+  int (*resolve_call)(const SlCallResolutionRequest *request, SlResolvedFunction *result);
 } SlLanguagePack;
 
 extern const SlLanguagePack sl_typescript_pack;
 
 const SlLanguagePack *sl_language_for_path(const char *path);
+int sl_language_resolve_call(const SlLanguagePack *pack, const SlCallResolutionRequest *request,
+                             SlResolvedFunction *result);
 
 #endif

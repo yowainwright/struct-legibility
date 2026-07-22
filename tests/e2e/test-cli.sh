@@ -39,6 +39,11 @@ fixture="$repo_root/tests/fixtures/typescript/export-order.ts"
 expected="$fixture:1:1: error[function-order] helper must appear below exported function main"
 assert_result ci 1 "$expected" "$fixture"
 
+fixture="$repo_root/tests/fixtures/typescript/export-alias-order.ts"
+message="helper must appear below exported function publicApi"
+expected="$fixture:1:1: error[function-order] $message"
+assert_result ci 1 "$expected" "$fixture"
+
 fixture="$repo_root/tests/fixtures/typescript/arrow-function-order.ts"
 expected="$fixture:1:1: error[function-order] helper must appear below caller main"
 assert_result ci 1 "$expected" "$fixture"

@@ -108,6 +108,32 @@ if [ "$status" -ne 1 ] || [ "$diagnostic" != "$expected" ]; then
   exit 1
 fi
 
+fixture="$repo_root/tests/fixtures/typescript/graph-export-alias"
+main="$fixture/main.ts"
+helper="$fixture/helper.ts"
+set +e
+diagnostic="$($output "$fixture" 2>&1)"
+status=$?
+set -e
+expected="$main:1:1: error[call-edge] crossFileMain calls helper in $helper"
+if [ "$status" -ne 1 ] || [ "$diagnostic" != "$expected" ]; then
+  printf 'export alias call graph failed\nstatus: %s\noutput: %s\n' "$status" "$diagnostic" >&2
+  exit 1
+fi
+
+fixture="$repo_root/tests/fixtures/typescript/graph-default-anonymous"
+main="$fixture/main.ts"
+helper="$fixture/helper.ts"
+set +e
+diagnostic="$($output "$fixture" 2>&1)"
+status=$?
+set -e
+expected="$main:1:1: error[call-edge] crossFileMain calls default in $helper"
+if [ "$status" -ne 1 ] || [ "$diagnostic" != "$expected" ]; then
+  printf 'anonymous default call graph failed\nstatus: %s\noutput: %s\n' "$status" "$diagnostic" >&2
+  exit 1
+fi
+
 fixture="$repo_root/tests/fixtures/typescript/graph-directory"
 main="$fixture/main.ts"
 helper="$fixture/helper/index.ts"

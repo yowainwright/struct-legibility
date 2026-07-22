@@ -60,6 +60,17 @@ typedef struct {
 } ProjectIndex;
 
 typedef struct {
+  char *local_name;
+  char *export_name;
+} ExportAlias;
+
+typedef struct {
+  ExportAlias *items;
+  size_t count;
+  size_t capacity;
+} ExportTable;
+
+typedef struct {
   size_t start;
   size_t end;
 } TextRange;
@@ -177,27 +188,118 @@ static SlStatus append_export_name(SlDeclarationFact *fact, char *name) {
   return SL_OK;
 }
 
-static SlStatus collect_export_reference(TSNode node, const Source *source,
-                                         const SlLanguagePack *pack, SlDeclarationFact *fact) {
-  const TSNode reference = pack->exported_reference_name_node(node);
-  if (ts_node_is_null(reference)) return SL_OK;
-  if (!node_text_equals(source, reference, fact->name)) return SL_OK;
-  const TSNode exported = pack->exported_name_node(node);
-  if (ts_node_is_null(exported)) return SL_OK;
-  return append_export_name(fact, node_text(source, exported));
+static void export_table_free(ExportTable *table) {
+  for (size_t index = 0; index < table->count; index++) {
+    free(table->items[index].local_name);
+    free(table->items[index].export_name);
+  }
+  free(table->items);
+  *table = (ExportTable){0};
 }
 
-static SlStatus collect_export_references(TSNode node, const Source *source,
-                                          const SlLanguagePack *pack, SlDeclarationFact *fact) {
-  const SlStatus reference_status = collect_export_reference(node, source, pack, fact);
-  if (reference_status != SL_OK) return reference_status;
+static SlStatus reserve_export_alias(ExportTable *table) {
+  if (table->count < table->capacity) return SL_OK;
+  const size_t capacity = table->capacity == 0 ? 8 : table->capacity * 2;
+  ExportAlias *items = realloc(table->items, capacity * sizeof(*items));
+  if (items == NULL) return SL_OUT_OF_MEMORY;
+  table->items = items;
+  table->capacity = capacity;
+  return SL_OK;
+}
+
+static SlStatus append_export_alias(ExportTable *table, char *local_name, char *export_name) {
+  const int names_allocated = local_name != NULL && export_name != NULL;
+  const SlStatus status = names_allocated ? reserve_export_alias(table) : SL_OUT_OF_MEMORY;
+  if (status != SL_OK) {
+    free(local_name);
+    free(export_name);
+    return status;
+  }
+  table->items[table->count++] =
+      (ExportAlias){.local_name = local_name, .export_name = export_name};
+  return SL_OK;
+}
+
+static SlStatus collect_export_alias(TSNode node, const Source *source, const SlLanguagePack *pack,
+                                     ExportTable *table) {
+  const TSNode local = pack->exported_reference_name_node(node);
+  if (ts_node_is_null(local)) return SL_OK;
+  const TSNode exported = pack->exported_name_node(node);
+  if (ts_node_is_null(exported)) return SL_OK;
+  return append_export_alias(table, node_text(source, local), node_text(source, exported));
+}
+
+static SlStatus collect_export_aliases(TSNode node, const Source *source,
+                                       const SlLanguagePack *pack, ExportTable *table) {
+  const SlStatus alias_status = collect_export_alias(node, source, pack, table);
+  if (alias_status != SL_OK) return alias_status;
   const uint32_t count = ts_node_named_child_count(node);
   for (uint32_t index = 0; index < count; index++) {
     const TSNode child = ts_node_named_child(node, index);
-    const SlStatus status = collect_export_references(child, source, pack, fact);
+    const SlStatus status = collect_export_aliases(child, source, pack, table);
     if (status != SL_OK) return status;
   }
   return SL_OK;
+}
+
+static SlStatus collect_direct_export(TSNode input, const Source *source,
+                                      const SlLanguagePack *pack, ExportTable *table) {
+  if (!pack->is_exported(input)) return SL_OK;
+  const TSNode declaration = pack->declaration_node(input);
+  const TSNode local = pack->name_node(declaration);
+  const char *implicit = pack->implicit_export_name(input);
+  const int anonymous = ts_node_is_null(local) || ts_node_is_missing(local);
+  if (anonymous && implicit == NULL) return SL_OK;
+  char *local_name = anonymous ? copy_string(implicit) : node_text(source, local);
+  char *export_name = implicit == NULL ? node_text(source, local) : copy_string(implicit);
+  return append_export_alias(table, local_name, export_name);
+}
+
+static SlStatus collect_direct_exports(TSNode root, const Source *source,
+                                       const SlLanguagePack *pack, ExportTable *table) {
+  const uint32_t count = ts_node_named_child_count(root);
+  for (uint32_t index = 0; index < count; index++) {
+    const TSNode declaration = ts_node_named_child(root, index);
+    const SlStatus status = collect_direct_export(declaration, source, pack, table);
+    if (status != SL_OK) return status;
+  }
+  return SL_OK;
+}
+
+static int compare_export_aliases(const void *left_value, const void *right_value) {
+  const ExportAlias *left = left_value;
+  const ExportAlias *right = right_value;
+  const int local_order = strcmp(left->local_name, right->local_name);
+  if (local_order != 0) return local_order;
+  return strcmp(left->export_name, right->export_name);
+}
+
+static SlStatus export_table_build(TSNode root, const Source *source, const SlLanguagePack *pack,
+                                   ExportTable *table) {
+  SlStatus status = collect_export_aliases(root, source, pack, table);
+  if (status == SL_OK) status = collect_direct_exports(root, source, pack, table);
+  if (status != SL_OK) return export_table_free(table), status;
+  if (table->count > 1)
+    qsort(table->items, table->count, sizeof(*table->items), compare_export_aliases);
+  return SL_OK;
+}
+
+static size_t export_table_find(const ExportTable *table, const char *local_name) {
+  size_t left = 0;
+  size_t right = table->count;
+  while (left < right) {
+    const size_t middle = left + (right - left) / 2;
+    const int order = strcmp(table->items[middle].local_name, local_name);
+    if (order < 0) left = middle + 1;
+    if (order >= 0) right = middle;
+  }
+  return left;
+}
+
+static int export_table_contains(const ExportTable *table, const char *local_name) {
+  const size_t index = export_table_find(table, local_name);
+  if (index == table->count) return 0;
+  return strcmp(table->items[index].local_name, local_name) == 0;
 }
 
 static size_t line_start(const Source *source, size_t offset) {
@@ -380,11 +482,17 @@ static const char *fact_kind(SlDeclarationKind kind) {
   return NULL;
 }
 
-static void declaration_fact_free(SlDeclarationFact *fact) {
-  free(fact->name);
+static void export_names_free(SlDeclarationFact *fact) {
   for (size_t index = 0; index < fact->export_name_count; index++)
     free(fact->export_names[index]);
   free(fact->export_names);
+  fact->export_names = NULL;
+  fact->export_name_count = 0;
+}
+
+static void declaration_fact_free(SlDeclarationFact *fact) {
+  free(fact->name);
+  export_names_free(fact);
   for (size_t index = 0; index < fact->call_count; index++)
     free(fact->calls[index]);
   free(fact->calls);
@@ -411,8 +519,8 @@ static SlStatus append_import(SlFileFact *file, SlImportFact fact) {
   return SL_OK;
 }
 
-static SlStatus imported_binding_name(TSNode node, const Source *source,
-                                      const SlLanguagePack *pack, char **name) {
+static SlStatus imported_binding_name(TSNode node, const Source *source, const SlLanguagePack *pack,
+                                      char **name) {
   *name = NULL;
   const TSNode imported = pack->imported_name_node(node);
   if (!ts_node_is_null(imported)) *name = node_text(source, imported);
@@ -498,10 +606,14 @@ static SlStatus append_declaration(SlFileFact *file, SlDeclarationFact fact) {
   return SL_OK;
 }
 
-static char *declaration_name(TSNode node, const Source *source, const SlLanguagePack *pack) {
+static char *declaration_name(TSNode input, TSNode node, const Source *source,
+                              const SlLanguagePack *pack) {
   const TSNode name_node = pack->name_node(node);
-  if (ts_node_is_null(name_node)) return copy_string("");
-  return node_text(source, name_node);
+  const int anonymous = ts_node_is_null(name_node) || ts_node_is_missing(name_node);
+  if (!anonymous) return node_text(source, name_node);
+  const char *implicit = pack->implicit_export_name(input);
+  if (implicit != NULL) return copy_string(implicit);
+  return copy_string("");
 }
 
 static SlDeclarationFact create_declaration_fact(SlDeclarationKind kind, char *name, int entrypoint,
@@ -513,48 +625,44 @@ static SlDeclarationFact create_declaration_fact(SlDeclarationKind kind, char *n
                              .column = point.column + 1};
 }
 
-static SlStatus collect_direct_export(TSNode input, const SlLanguagePack *pack,
-                                      SlDeclarationFact *fact) {
-  if (!pack->is_exported(input)) return SL_OK;
-  const char *implicit = pack->implicit_export_name(input);
-  const char *name = implicit == NULL ? fact->name : implicit;
-  if (name[0] == '\0') return SL_OK;
-  return append_export_name(fact, copy_string(name));
-}
-
-static SlStatus collect_declaration_exports(TSNode input, TSNode root, const Source *source,
-                                            const SlLanguagePack *pack, SlDeclarationFact *fact) {
-  SlStatus status = collect_direct_export(input, pack, fact);
-  if (status == SL_OK) status = collect_export_references(root, source, pack, fact);
+static SlStatus collect_declaration_exports(const ExportTable *exports, SlDeclarationFact *fact) {
+  size_t index = export_table_find(exports, fact->name);
+  while (index < exports->count && strcmp(exports->items[index].local_name, fact->name) == 0) {
+    const SlStatus status =
+        append_export_name(fact, copy_string(exports->items[index].export_name));
+    if (status != SL_OK) return status;
+    index++;
+  }
   fact->exported = fact->export_name_count > 0;
-  return status;
+  return SL_OK;
 }
 
-static SlStatus initialize_declaration_fact(TSNode input, TSNode root, const Source *source,
-                                            const SlLanguagePack *pack,
+static SlStatus initialize_declaration_fact(TSNode input, const ExportTable *exports,
+                                            const Source *source, const SlLanguagePack *pack,
                                             SlDeclarationKind declaration_kind,
                                             SlDeclarationFact *fact) {
   const TSNode node = pack->declaration_node(input);
-  char *name = declaration_name(node, source, pack);
+  char *name = declaration_name(input, node, source, pack);
   if (name == NULL) return SL_OUT_OF_MEMORY;
   const TSPoint point = ts_node_start_point(input);
   const int entrypoint =
       declaration_kind == SL_DECLARATION_FUNCTION && pack->is_entrypoint_name(name);
   *fact = create_declaration_fact(declaration_kind, name, entrypoint, point);
-  const SlStatus export_status = collect_declaration_exports(input, root, source, pack, fact);
+  const SlStatus export_status = collect_declaration_exports(exports, fact);
   if (export_status != SL_OK) return export_status;
   const SlStatus calls_status = collect_fact_calls(node, source, pack, fact);
   if (calls_status != SL_OK) return calls_status;
   return collect_fact_suppression(input, source, pack, fact);
 }
 
-static SlStatus collect_declaration_fact(TSNode input, TSNode root, const Source *source,
-                                         const SlLanguagePack *pack, SlFileFact *file) {
+static SlStatus collect_declaration_fact(TSNode input, const ExportTable *exports,
+                                         const Source *source, const SlLanguagePack *pack,
+                                         SlFileFact *file) {
   const SlDeclarationKind declaration_kind = pack->declaration_kind(input);
   if (fact_kind(declaration_kind) == NULL) return SL_OK;
   SlDeclarationFact fact = {0};
   const SlStatus fact_status =
-      initialize_declaration_fact(input, root, source, pack, declaration_kind, &fact);
+      initialize_declaration_fact(input, exports, source, pack, declaration_kind, &fact);
   if (fact_status != SL_OK) return declaration_fact_free(&fact), fact_status;
   const SlStatus status = append_declaration(file, fact);
   if (status != SL_OK) declaration_fact_free(&fact);
@@ -583,15 +691,17 @@ static SlStatus append_file_fact(SlReport *report, SlFileFact file) {
   return SL_OK;
 }
 
-static SlStatus collect_file_fact(const char *path, TSNode root, const Source *source,
-                                  const SlLanguagePack *pack, SlReport *report) {
+static SlStatus collect_file_fact(const char *path, TSNode root, const ExportTable *exports,
+                                  const Source *source, const SlLanguagePack *pack,
+                                  SlReport *report) {
   SlFileFact file = {.path = copy_string(path), .resolved_path = realpath(path, NULL)};
   if (file.path == NULL || file.resolved_path == NULL) return file_fact_free(&file), SL_IO_ERROR;
   const uint32_t count = ts_node_named_child_count(root);
   for (uint32_t index = 0; index < count; index++) {
     const TSNode declaration = ts_node_named_child(root, index);
     SlStatus status = collect_declaration_imports(path, declaration, source, pack, &file);
-    if (status == SL_OK) status = collect_declaration_fact(declaration, root, source, pack, &file);
+    if (status == SL_OK)
+      status = collect_declaration_fact(declaration, exports, source, pack, &file);
     if (status != SL_OK) return file_fact_free(&file), status;
   }
   const SlStatus status = append_file_fact(report, file);
@@ -628,13 +738,13 @@ static FunctionFact create_function_fact(char *name, TSNode node, int exported, 
                         .suppress_function_order = suppressed};
 }
 
-static SlStatus collect_function(TSNode input, TSNode root, const Source *source,
+static SlStatus collect_function(TSNode input, const ExportTable *exports, const Source *source,
                                  const SlLanguagePack *pack, FunctionList *functions) {
   if (pack->declaration_kind(input) != SL_DECLARATION_FUNCTION) return SL_OK;
   const TSNode node = pack->declaration_node(input);
-  char *name = declaration_name(node, source, pack);
+  char *name = declaration_name(input, node, source, pack);
   if (name == NULL) return SL_OUT_OF_MEMORY;
-  const int exported = declaration_is_exported(input, root, source, pack, name);
+  const int exported = export_table_contains(exports, name);
   const int entrypoint = pack->is_entrypoint_name(name);
   const int suppressed = declaration_suppresses(source, input, pack, "function-order");
   FunctionFact function = create_function_fact(name, node, exported, entrypoint, suppressed);
@@ -645,12 +755,12 @@ static SlStatus collect_function(TSNode input, TSNode root, const Source *source
   return status;
 }
 
-static SlStatus collect_functions(TSNode root, const Source *source, const SlLanguagePack *pack,
-                                  FunctionList *functions) {
+static SlStatus collect_functions(TSNode root, const ExportTable *exports, const Source *source,
+                                  const SlLanguagePack *pack, FunctionList *functions) {
   const uint32_t count = ts_node_named_child_count(root);
   for (uint32_t index = 0; index < count; index++) {
     const TSNode declaration = ts_node_named_child(root, index);
-    const SlStatus status = collect_function(declaration, root, source, pack, functions);
+    const SlStatus status = collect_function(declaration, exports, source, pack, functions);
     if (status != SL_OK) return status;
   }
   return SL_OK;
@@ -875,10 +985,11 @@ static SlStatus diagnose_function_order(const char *path, FunctionList *function
   return analyze_export_order(path, functions, search, report);
 }
 
-static SlStatus analyze_function_order(const char *path, TSNode root, const Source *source,
-                                       const SlLanguagePack *pack, SlReport *report) {
+static SlStatus analyze_function_order(const char *path, TSNode root, const ExportTable *exports,
+                                       const Source *source, const SlLanguagePack *pack,
+                                       SlReport *report) {
   FunctionList functions = {0};
-  const SlStatus collect_status = collect_functions(root, source, pack, &functions);
+  const SlStatus collect_status = collect_functions(root, exports, source, pack, &functions);
   if (collect_status != SL_OK) return function_list_free(&functions), collect_status;
   if (functions.count < 2) return function_list_free(&functions), SL_OK;
   NameIndex index = {0};
@@ -908,8 +1019,8 @@ static SlStatus add_order_diagnostic(const char *path, TSNode node, SlDeclaratio
   return SL_OUT_OF_MEMORY;
 }
 
-static SlStatus analyze_root(const char *path, TSNode root, const Source *source,
-                             const SlLanguagePack *pack, SlReport *report) {
+static SlStatus analyze_root(const char *path, TSNode root, const ExportTable *exports,
+                             const Source *source, const SlLanguagePack *pack, SlReport *report) {
   SlDeclarationKind highest = SL_DECLARATION_NONE;
   const uint32_t count = ts_node_named_child_count(root);
   for (uint32_t index = 0; index < count; index++) {
@@ -924,7 +1035,7 @@ static SlStatus analyze_root(const char *path, TSNode root, const Source *source
     }
     if (section > highest) highest = section;
   }
-  return analyze_function_order(path, root, source, pack, report);
+  return analyze_function_order(path, root, exports, source, pack, report);
 }
 
 static int compare_diagnostics(const void *left_value, const void *right_value) {
@@ -970,21 +1081,24 @@ static SlStatus add_parse_diagnostic(const char *path, TSNode root, const SlLang
   return SL_OUT_OF_MEMORY;
 }
 
-static SlStatus collect_requested_facts(const char *path, TSNode root, const Source *source,
-                                        const SlLanguagePack *pack, int collect_facts,
-                                        SlReport *report) {
+static SlStatus collect_requested_facts(const char *path, TSNode root, const ExportTable *exports,
+                                        const Source *source, const SlLanguagePack *pack,
+                                        int collect_facts, SlReport *report) {
   if (!collect_facts) return SL_OK;
-  return collect_file_fact(path, root, source, pack, report);
+  return collect_file_fact(path, root, exports, source, pack, report);
 }
 
 static SlStatus analyze_parsed_file(const char *path, TSNode root, const Source *source,
                                     const SlLanguagePack *pack, int collect_facts,
                                     SlReport *report) {
   if (ts_node_has_error(root)) return add_parse_diagnostic(path, root, pack, report);
-  const SlStatus fact_status =
-      collect_requested_facts(path, root, source, pack, collect_facts, report);
-  if (fact_status != SL_OK) return fact_status;
-  return analyze_root(path, root, source, pack, report);
+  ExportTable exports = {0};
+  SlStatus status = export_table_build(root, source, pack, &exports);
+  if (status == SL_OK)
+    status = collect_requested_facts(path, root, &exports, source, pack, collect_facts, report);
+  if (status == SL_OK) status = analyze_root(path, root, &exports, source, pack, report);
+  export_table_free(&exports);
+  return status;
 }
 
 static SlStatus analyze_file(const char *path, TSParser *parser, int collect_facts,
@@ -1223,8 +1337,7 @@ static SlStatus project_name_index_allocate(ProjectNameIndex *index, size_t coun
 }
 
 static SlStatus project_index_build(const SlReport *report, ProjectIndex *index) {
-  SlStatus status =
-      project_name_index_allocate(&index->locals, project_declaration_count(report));
+  SlStatus status = project_name_index_allocate(&index->locals, project_declaration_count(report));
   if (status == SL_OK)
     status = project_name_index_allocate(&index->exports, project_export_count(report));
   if (status != SL_OK) return free(index->locals.slots), status;
@@ -1251,24 +1364,27 @@ static const ProjectNameSlot *project_index_find(const ProjectNameIndex *index, 
   return NULL;
 }
 
-static const SlImportFact *find_import(const SlFileFact *file, const char *local_name) {
-  const SlImportFact *match = NULL;
-  for (size_t index = 0; index < file->import_count; index++) {
-    const SlImportFact *candidate = &file->imports[index];
-    if (strcmp(candidate->local_name, local_name) != 0) continue;
-    if (match != NULL) return NULL;
-    match = candidate;
-  }
-  return match;
+static int project_symbol_lookup(const void *context, const char *path, const char *name,
+                                 int exported, SlResolvedFunction *result) {
+  const ProjectIndex *index = context;
+  const ProjectNameIndex *names = exported ? &index->exports : &index->locals;
+  const ProjectNameSlot *slot = project_index_find(names, path, name);
+  if (slot == NULL) return 0;
+  *result = (SlResolvedFunction){.file = slot->file, .declaration = slot->declaration};
+  return 1;
 }
 
-static const ProjectNameSlot *resolve_called_function(const ProjectIndex *index,
-                                                      const SlFileFact *file, const char *name) {
-  const ProjectNameSlot *local = project_index_find(&index->locals, file->resolved_path, name);
-  if (local != NULL) return local;
-  const SlImportFact *import = find_import(file, name);
-  if (import == NULL || import->target_path == NULL) return NULL;
-  return project_index_find(&index->exports, import->target_path, import->imported_name);
+static int resolve_called_function(const SlReport *report, const ProjectIndex *index,
+                                   const SlFileFact *file, const char *name,
+                                   SlResolvedFunction *result) {
+  const SlLanguagePack *pack = sl_language_for_path(file->path);
+  if (pack == NULL) return 0;
+  const SlCallResolutionRequest request = {.project = report,
+                                           .caller_file = file,
+                                           .called_name = name,
+                                           .lookup_context = index,
+                                           .lookup = project_symbol_lookup};
+  return sl_language_resolve_call(pack, &request, result);
 }
 
 static size_t file_call_capacity(const SlFileFact *file) {
@@ -1295,12 +1411,12 @@ static SlStatus allocate_project_calls(SlReport *report) {
 static SlStatus add_resolved_call(SlReport *report, const ProjectIndex *index,
                                   const SlFileFact *caller_file, const SlDeclarationFact *caller,
                                   const char *name) {
-  const ProjectNameSlot *callee = resolve_called_function(index, caller_file, name);
-  if (callee == NULL) return SL_OK;
+  SlResolvedFunction callee = {0};
+  if (!resolve_called_function(report, index, caller_file, name, &callee)) return SL_OK;
   SlCallFact call = {.caller_path = copy_string(caller_file->path),
                      .caller_name = copy_string(caller->name),
-                     .callee_path = copy_string(callee->file->path),
-                     .callee_name = copy_string(callee->declaration->name)};
+                     .callee_path = copy_string(callee.file->path),
+                     .callee_name = copy_string(callee.declaration->name)};
   const int allocated =
       call.caller_path && call.caller_name && call.callee_path && call.callee_name;
   if (!allocated) return call_fact_free(&call), SL_OUT_OF_MEMORY;

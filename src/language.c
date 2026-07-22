@@ -24,3 +24,12 @@ const SlLanguagePack *sl_language_for_path(const char *path) {
   }
   return NULL;
 }
+
+int sl_language_resolve_call(const SlLanguagePack *pack, const SlCallResolutionRequest *request,
+                             SlResolvedFunction *result) {
+  if (pack == NULL || request == NULL || result == NULL) return 0;
+  *result = (SlResolvedFunction){0};
+  if (pack->resolve_call == NULL) return 0;
+  if (!pack->resolve_call(request, result)) return 0;
+  return result->file != NULL && result->declaration != NULL;
+}
