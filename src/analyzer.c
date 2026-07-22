@@ -1202,12 +1202,36 @@ static size_t project_declaration_count(const SlReport *report) {
   return count;
 }
 
-static SlStatus project_index_build(const SlReport *report, ProjectNameIndex *index) {
-  index->capacity = index_capacity(project_declaration_count(report));
-  index->slots = calloc(index->capacity, sizeof(*index->slots));
-  if (index->slots == NULL) return SL_OUT_OF_MEMORY;
+static size_t file_export_count(const SlFileFact *file) {
+  size_t count = 0;
+  for (size_t item = 0; item < file->declaration_count; item++)
+    count += file->declarations[item].export_name_count;
+  return count;
+}
+
+static size_t project_export_count(const SlReport *report) {
+  size_t count = 0;
   for (size_t file = 0; file < report->file_count; file++)
-    project_index_file(index, &report->files[file]);
+    count += file_export_count(&report->files[file]);
+  return count;
+}
+
+static SlStatus project_name_index_allocate(ProjectNameIndex *index, size_t count) {
+  index->capacity = index_capacity(count);
+  index->slots = calloc(index->capacity, sizeof(*index->slots));
+  return index->slots == NULL ? SL_OUT_OF_MEMORY : SL_OK;
+}
+
+static SlStatus project_index_build(const SlReport *report, ProjectIndex *index) {
+  SlStatus status =
+      project_name_index_allocate(&index->locals, project_declaration_count(report));
+  if (status == SL_OK)
+    status = project_name_index_allocate(&index->exports, project_export_count(report));
+  if (status != SL_OK) return free(index->locals.slots), status;
+  for (size_t file = 0; file < report->file_count; file++) {
+    project_index_local_file(&index->locals, &report->files[file]);
+    project_index_export_file(&index->exports, &report->files[file]);
+  }
   return SL_OK;
 }
 
@@ -1238,16 +1262,13 @@ static const SlImportFact *find_import(const SlFileFact *file, const char *local
   return match;
 }
 
-static const ProjectNameSlot *resolve_called_function(const ProjectNameIndex *index,
+static const ProjectNameSlot *resolve_called_function(const ProjectIndex *index,
                                                       const SlFileFact *file, const char *name) {
-  const ProjectNameSlot *local = project_index_find(index, file->resolved_path, name);
+  const ProjectNameSlot *local = project_index_find(&index->locals, file->resolved_path, name);
   if (local != NULL) return local;
   const SlImportFact *import = find_import(file, name);
   if (import == NULL || import->target_path == NULL) return NULL;
-  const ProjectNameSlot *target =
-      project_index_find(index, import->target_path, import->imported_name);
-  if (target == NULL || !target->declaration->exported) return NULL;
-  return target;
+  return project_index_find(&index->exports, import->target_path, import->imported_name);
 }
 
 static size_t file_call_capacity(const SlFileFact *file) {
@@ -1271,7 +1292,7 @@ static SlStatus allocate_project_calls(SlReport *report) {
   return report->calls == NULL ? SL_OUT_OF_MEMORY : SL_OK;
 }
 
-static SlStatus add_resolved_call(SlReport *report, const ProjectNameIndex *index,
+static SlStatus add_resolved_call(SlReport *report, const ProjectIndex *index,
                                   const SlFileFact *caller_file, const SlDeclarationFact *caller,
                                   const char *name) {
   const ProjectNameSlot *callee = resolve_called_function(index, caller_file, name);
@@ -1287,7 +1308,7 @@ static SlStatus add_resolved_call(SlReport *report, const ProjectNameIndex *inde
   return SL_OK;
 }
 
-static SlStatus resolve_declaration_calls(SlReport *report, const ProjectNameIndex *index,
+static SlStatus resolve_declaration_calls(SlReport *report, const ProjectIndex *index,
                                           const SlFileFact *file,
                                           const SlDeclarationFact *declaration) {
   if (strcmp(declaration->kind, "function") != 0) return SL_OK;
@@ -1299,7 +1320,7 @@ static SlStatus resolve_declaration_calls(SlReport *report, const ProjectNameInd
   return SL_OK;
 }
 
-static SlStatus resolve_file_calls(SlReport *report, const ProjectNameIndex *index,
+static SlStatus resolve_file_calls(SlReport *report, const ProjectIndex *index,
                                    const SlFileFact *file) {
   for (size_t item = 0; item < file->declaration_count; item++) {
     const SlStatus status =
@@ -1309,7 +1330,7 @@ static SlStatus resolve_file_calls(SlReport *report, const ProjectNameIndex *ind
   return SL_OK;
 }
 
-static SlStatus resolve_project_calls(SlReport *report, const ProjectNameIndex *index) {
+static SlStatus resolve_project_calls(SlReport *report, const ProjectIndex *index) {
   for (size_t file = 0; file < report->file_count; file++) {
     const SlStatus status = resolve_file_calls(report, index, &report->files[file]);
     if (status != SL_OK) return status;
@@ -1318,12 +1339,13 @@ static SlStatus resolve_project_calls(SlReport *report, const ProjectNameIndex *
 }
 
 static SlStatus build_project_calls(SlReport *report) {
-  ProjectNameIndex index = {0};
+  ProjectIndex index = {0};
   SlStatus status = project_index_build(report, &index);
   if (status != SL_OK) return status;
   status = allocate_project_calls(report);
   if (status == SL_OK) status = resolve_project_calls(report, &index);
-  free(index.slots);
+  free(index.locals.slots);
+  free(index.exports.slots);
   return status;
 }
 
