@@ -4,18 +4,34 @@ set -euo pipefail
 entry=""
 output=""
 
+set_entry() {
+  local value="$1"
+  if [ -n "$entry" ] || [ -z "$value" ]; then return 1; fi
+  case "$value" in -*) return 1 ;; esac
+  entry="$value"
+}
+
+set_output() {
+  local value="$1"
+  if [ -n "$output" ] || [ -z "$value" ]; then return 1; fi
+  case "$value" in -*) return 1 ;; esac
+  output="$value"
+}
+
 parse_args() {
   while [ "$#" -gt 0 ]; do
     case "$1" in
       -o)
-        shift
-        output="${1:-}"
+        if [ "$#" -lt 2 ]; then return 1; fi
+        set_output "$2" || return 1
+        shift 2
         ;;
+      -*) return 1 ;;
       *)
-        entry="$1"
+        set_entry "$1" || return 1
+        shift
         ;;
     esac
-    shift
   done
   if [ -z "$entry" ] || [ -z "$output" ]; then return 1; fi
 }

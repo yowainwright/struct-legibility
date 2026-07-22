@@ -115,6 +115,12 @@ if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
 endif()
 
 if(BUILD_TESTING)
+  add_executable(struct-legibility-api-test tests/c/api_test.c)
+  target_link_libraries(struct-legibility-api-test PRIVATE struct_legibility)
+  if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
+    target_compile_options(struct-legibility-api-test PRIVATE -Wall -Wextra -Wpedantic -Werror)
+  endif()
+  add_test(NAME struct-legibility-api COMMAND struct-legibility-api-test)
   add_test(
     NAME struct-legibility-cli
     COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/test-cli.sh

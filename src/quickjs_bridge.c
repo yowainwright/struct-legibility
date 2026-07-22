@@ -76,6 +76,10 @@ static int js_path_list_read(JSContext *context, JSValueConst value, JsPathList 
   if (paths->items == NULL) return 0;
   for (uint32_t index = 0; index < (uint32_t)count; index++) {
     JSValue item = JS_GetPropertyUint32(context, value, index);
+    if (!JS_IsString(item)) {
+      JS_FreeValue(context, item);
+      return js_path_list_free(context, paths), 0;
+    }
     const char *path = JS_ToCString(context, item);
     JS_FreeValue(context, item);
     if (path == NULL) return js_path_list_free(context, paths), 0;
@@ -100,13 +104,13 @@ static JSValue diagnostic_to_js(JSContext *context, const SlDiagnostic *diagnost
   return object;
 }
 
-static JSValue calls_to_js(JSContext *context, const SlDeclarationFact *declaration) {
-  JSValue calls = JS_NewArray(context);
-  for (size_t index = 0; index < declaration->call_count; index++) {
-    JSValue name = JS_NewString(context, declaration->calls[index]);
-    JS_SetPropertyUint32(context, calls, (uint32_t)index, name);
+static JSValue strings_to_js(JSContext *context, char *const *items, size_t count) {
+  JSValue values = JS_NewArray(context);
+  for (size_t index = 0; index < count; index++) {
+    JSValue value = JS_NewString(context, items[index]);
+    JS_SetPropertyUint32(context, values, (uint32_t)index, value);
   }
-  return calls;
+  return values;
 }
 
 static JSValue declaration_to_js(JSContext *context, const SlDeclarationFact *declaration) {
@@ -114,9 +118,17 @@ static JSValue declaration_to_js(JSContext *context, const SlDeclarationFact *de
   set_string(context, object, "kind", declaration->kind);
   set_string(context, object, "name", declaration->name);
   JS_SetPropertyStr(context, object, "exported", JS_NewBool(context, declaration->exported));
+  JS_SetPropertyStr(context, object, "entrypoint", JS_NewBool(context, declaration->entrypoint));
+  JSValue export_names =
+      strings_to_js(context, declaration->export_names, declaration->export_name_count);
+  JS_SetPropertyStr(context, object, "exportNames", export_names);
   JS_SetPropertyStr(context, object, "line", JS_NewInt64(context, declaration->line));
   JS_SetPropertyStr(context, object, "column", JS_NewInt64(context, declaration->column));
-  JS_SetPropertyStr(context, object, "calls", calls_to_js(context, declaration));
+  JSValue calls = strings_to_js(context, declaration->calls, declaration->call_count);
+  JSValue suppressions =
+      strings_to_js(context, declaration->suppressions, declaration->suppression_count);
+  JS_SetPropertyStr(context, object, "calls", calls);
+  JS_SetPropertyStr(context, object, "suppressions", suppressions);
   return object;
 }
 
@@ -129,21 +141,65 @@ static JSValue declarations_to_js(JSContext *context, const SlFileFact *file) {
   return declarations;
 }
 
+static JSValue import_to_js(JSContext *context, const SlImportFact *import) {
+  JSValue object = JS_NewObject(context);
+  set_string(context, object, "localName", import->local_name);
+  set_string(context, object, "importedName", import->imported_name);
+  set_string(context, object, "source", import->source);
+  JSValue target =
+      import->target_path == NULL ? JS_NULL : JS_NewString(context, import->target_path);
+  JS_SetPropertyStr(context, object, "targetPath", target);
+  return object;
+}
+
+static JSValue imports_to_js(JSContext *context, const SlFileFact *file) {
+  JSValue imports = JS_NewArray(context);
+  for (size_t index = 0; index < file->import_count; index++) {
+    JSValue import = import_to_js(context, &file->imports[index]);
+    JS_SetPropertyUint32(context, imports, (uint32_t)index, import);
+  }
+  return imports;
+}
+
 static JSValue file_to_js(JSContext *context, const SlFileFact *file) {
   JSValue object = JS_NewObject(context);
   set_string(context, object, "path", file->path);
   JS_SetPropertyStr(context, object, "declarations", declarations_to_js(context, file));
+  JS_SetPropertyStr(context, object, "imports", imports_to_js(context, file));
   return object;
 }
 
-static JSValue project_to_js(JSContext *context, const SlReport *report) {
+static JSValue files_to_js(JSContext *context, const SlReport *report) {
   JSValue files = JS_NewArray(context);
   for (size_t index = 0; index < report->file_count; index++) {
     JS_SetPropertyUint32(context, files, (uint32_t)index,
                          file_to_js(context, &report->files[index]));
   }
+  return files;
+}
+
+static JSValue call_fact_to_js(JSContext *context, const SlCallFact *call) {
+  JSValue object = JS_NewObject(context);
+  set_string(context, object, "callerPath", call->caller_path);
+  set_string(context, object, "callerName", call->caller_name);
+  set_string(context, object, "calleePath", call->callee_path);
+  set_string(context, object, "calleeName", call->callee_name);
+  return object;
+}
+
+static JSValue call_facts_to_js(JSContext *context, const SlReport *report) {
+  JSValue calls = JS_NewArray(context);
+  for (size_t index = 0; index < report->call_count; index++) {
+    JSValue call = call_fact_to_js(context, &report->calls[index]);
+    JS_SetPropertyUint32(context, calls, (uint32_t)index, call);
+  }
+  return calls;
+}
+
+static JSValue project_to_js(JSContext *context, const SlReport *report) {
   JSValue project = JS_NewObject(context);
-  JS_SetPropertyStr(context, project, "files", files);
+  JS_SetPropertyStr(context, project, "files", files_to_js(context, report));
+  JS_SetPropertyStr(context, project, "calls", call_facts_to_js(context, report));
   return project;
 }
 
@@ -176,16 +232,18 @@ static JSValue analyze_paths(JSContext *context, const JsPathList *paths, int us
 static JSValue js_analyze(JSContext *context, JSValueConst this_value, int argument_count,
                           JSValueConst *arguments) {
   (void)this_value;
-  if (argument_count < 3) return JS_ThrowTypeError(context, "analyze requires paths and modes");
+  if (argument_count != 3) return JS_ThrowTypeError(context, "analyze requires paths and modes");
   JsPathList paths = {0};
-  if (!js_path_list_read(context, arguments[0], &paths)) {
+  if (!js_path_list_read(context, arguments[0], &paths))
+    return js_path_list_free(context, &paths),
+           JS_ThrowTypeError(context, "paths must be a non-empty string array");
+  const int modes_are_boolean = JS_IsBool(arguments[1]) && JS_IsBool(arguments[2]);
+  if (!modes_are_boolean) {
     js_path_list_free(context, &paths);
-    return JS_ThrowTypeError(context, "paths must be a non-empty string array");
+    return JS_ThrowTypeError(context, "analysis modes must be boolean");
   }
-  const int use_gitignore = JS_ToBool(context, arguments[1]);
-  if (use_gitignore < 0) return js_path_list_free(context, &paths), JS_EXCEPTION;
-  const int collect_facts = JS_ToBool(context, arguments[2]);
-  if (collect_facts < 0) return js_path_list_free(context, &paths), JS_EXCEPTION;
+  const int use_gitignore = JS_VALUE_GET_BOOL(arguments[1]);
+  const int collect_facts = JS_VALUE_GET_BOOL(arguments[2]);
   JSValue result = analyze_paths(context, &paths, use_gitignore, collect_facts);
   js_path_list_free(context, &paths);
   return result;
@@ -194,22 +252,37 @@ static JSValue js_analyze(JSContext *context, JSValueConst this_value, int argum
 static JSValue js_write(JSContext *context, JSValueConst this_value, int argument_count,
                         JSValueConst *arguments) {
   (void)this_value;
-  if (argument_count < 2) return JS_ThrowTypeError(context, "write requires text and stream");
+  if (argument_count != 2) return JS_ThrowTypeError(context, "write requires text and stream");
+  const int types_are_valid = JS_IsString(arguments[0]) && JS_IsBool(arguments[1]);
+  if (!types_are_valid) return JS_ThrowTypeError(context, "write requires string and boolean");
   const char *text = JS_ToCString(context, arguments[0]);
   if (text == NULL) return JS_EXCEPTION;
-  const int use_stderr = JS_ToBool(context, arguments[1]);
+  const int use_stderr = JS_VALUE_GET_BOOL(arguments[1]);
   FILE *stream = use_stderr ? stderr : stdout;
   fputs(text, stream);
   JS_FreeCString(context, text);
   return JS_UNDEFINED;
 }
 
+static int read_exit_code(JSContext *context, JSValueConst value, int *code) {
+  if (!JS_IsNumber(value)) return 0;
+  double number = 0;
+  if (JS_ToFloat64(context, &number, value) != 0) return 0;
+  const int in_range = number >= 0.0 && number <= 2.0;
+  if (!in_range) return 0;
+  const int converted = (int)number;
+  if ((double)converted != number) return 0;
+  *code = converted;
+  return 1;
+}
+
 static JSValue js_set_exit_code(JSContext *context, JSValueConst this_value, int argument_count,
                                 JSValueConst *arguments) {
   (void)this_value;
-  if (argument_count < 1) return JS_ThrowTypeError(context, "exit code is required");
-  int32_t code = 0;
-  if (JS_ToInt32(context, &code, arguments[0]) != 0) return JS_EXCEPTION;
+  if (argument_count != 1) return JS_ThrowTypeError(context, "exit code is required");
+  int code = 0;
+  if (!read_exit_code(context, arguments[0], &code))
+    return JS_ThrowTypeError(context, "exit code must be 0, 1, or 2");
   runtime_exit_code = code;
   return JS_UNDEFINED;
 }
@@ -217,8 +290,8 @@ static JSValue js_set_exit_code(JSContext *context, JSValueConst this_value, int
 static JSValue js_default_profile(JSContext *context, JSValueConst this_value, int argument_count,
                                   JSValueConst *arguments) {
   (void)this_value;
-  (void)argument_count;
   (void)arguments;
+  if (argument_count != 0) return JS_ThrowTypeError(context, "default profile takes no arguments");
   const char *profile = getenv("STRUCT_LEGIBILITY_PROFILE");
   if (profile == NULL || profile[0] == '\0') profile = "local";
   return JS_NewString(context, profile);

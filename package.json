@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "./scripts/build.sh runtime/cli.ts -o .build/struct-legibility",
+    "benchmark": "./scripts/benchmark.sh",
     "test": "./scripts/check.sh",
     "typecheck": "tsc -p tsconfig.json"
   },

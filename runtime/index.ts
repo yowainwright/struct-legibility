@@ -1,5 +1,13 @@
 import { hasProfile, severityFor, type Config, type RuleDiagnostic, type Severity } from "./config";
-import type { NativeDiagnostic, NativeReport } from "./native";
+import type {
+  Call,
+  Declaration,
+  Import,
+  NativeDiagnostic,
+  NativeReport,
+  Project,
+  SourceFile,
+} from "./native";
 
 export {
   defineConfig,
@@ -51,10 +59,12 @@ const parseNamedOption = (
   if (argument === "--no-ignore") return { ...options, useGitignore: false };
   if (value === undefined) return null;
   const isProfile = argument === "--profile";
-  if (isProfile && !hasProfile(config, value)) return null;
+  const isUnknownProfile = isProfile && !hasProfile(config, value);
+  if (isUnknownProfile) return null;
   if (isProfile) return { ...options, profile: value };
   const isOutputFormat = value === "human" || value === "json";
-  if (argument !== "--format" || !isOutputFormat) return null;
+  const isInvalidFormat = argument !== "--format" || !isOutputFormat;
+  if (isInvalidFormat) return null;
   const format: OutputFormat = value;
   return { ...options, format };
 };
@@ -108,9 +118,49 @@ const asNativeDiagnostic = (diagnostic: RuleDiagnostic): NativeDiagnostic => {
   return { ...diagnostic, fixedError };
 };
 
+const freezeDeclaration = (declaration: Declaration): Declaration => {
+  const calls = Object.freeze([...declaration.calls]);
+  const suppressions = Object.freeze([...declaration.suppressions]);
+  const exportNames = Object.freeze([...declaration.exportNames]);
+  return Object.freeze({ ...declaration, calls, suppressions, exportNames });
+};
+
+const freezeImport = (value: Import): Import => Object.freeze({ ...value });
+
+const freezeFile = (file: SourceFile): SourceFile => {
+  const declarations = file.declarations.map(freezeDeclaration);
+  const imports = file.imports.map(freezeImport);
+  const frozenDeclarations = Object.freeze(declarations);
+  const frozenImports = Object.freeze(imports);
+  return Object.freeze({ ...file, declarations: frozenDeclarations, imports: frozenImports });
+};
+
+const freezeCall = (call: Call): Call => Object.freeze({ ...call });
+
+const freezeProject = (project: Project): Project => {
+  const files = Object.freeze(project.files.map(freezeFile));
+  const calls = Object.freeze(project.calls.map(freezeCall));
+  return Object.freeze({ files, calls });
+};
+
+const declarationSuppresses = (declaration: Declaration, diagnostic: RuleDiagnostic): boolean => {
+  if (declaration.line !== diagnostic.line) return false;
+  return declaration.suppressions.includes(diagnostic.ruleId);
+};
+
+const diagnosticIsSuppressed = (project: Project, diagnostic: RuleDiagnostic): boolean => {
+  return project.files.some((file) => {
+    if (file.path !== diagnostic.path) return false;
+    return file.declarations.some((declaration) => declarationSuppresses(declaration, diagnostic));
+  });
+};
+
 const customDiagnostics = (report: NativeReport, config: Config): readonly NativeDiagnostic[] => {
   const rules = config.rules ?? [];
-  return rules.flatMap((rule) => rule(report.project).map(asNativeDiagnostic));
+  const project = freezeProject(report.project);
+  const diagnostics = rules.flatMap((rule) => rule(project));
+  const active = diagnostics.filter((diagnostic) => !diagnosticIsSuppressed(project, diagnostic));
+  return active.map(asNativeDiagnostic);
 };
 
 const formattedOutput = (

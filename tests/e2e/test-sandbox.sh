@@ -29,6 +29,21 @@ diagnostic="$($output "$fixture" 2>&1)"
 status=$?
 set -e
 
-if [ "$status" -eq 2 ]; then exit 0; fi
-printf 'runtime module loading was available\nstatus: %s\noutput: %s\n' "$status" "$diagnostic" >&2
+if [ "$status" -ne 2 ]; then
+  printf 'runtime module loading was available\nstatus: %s\noutput: %s\n' "$status" "$diagnostic" >&2
+  exit 1
+fi
+
+output="$output-abi"
+entry="$repo_root/tests/fixtures/config/invalid-abi.ts"
+SL_BUILD_DIR="${SL_BUILD_DIR:-${TMPDIR:-/tmp}/struct-legibility-build}" \
+  "$repo_root/scripts/build.sh" "$entry" -o "$output"
+
+set +e
+diagnostic="$($output "$fixture" 2>&1)"
+status=$?
+set -e
+
+if [ "$status" -eq 0 ] && [ -z "$diagnostic" ]; then exit 0; fi
+printf 'native ABI accepted an invalid value\nstatus: %s\noutput: %s\n' "$status" "$diagnostic" >&2
 exit 1

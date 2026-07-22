@@ -15,14 +15,28 @@ typedef enum {
 typedef struct {
   const char *id;
   const char *parse_error_message;
+  const char *line_comment_prefix;
   const char *const *extensions;
   size_t extension_count;
   const TSLanguage *(*tree_sitter_language)(void);
   TSNode (*declaration_node)(TSNode input);
   SlDeclarationKind (*declaration_kind)(TSNode input);
   TSNode (*name_node)(TSNode declaration);
+  TSNode (*function_node)(TSNode declaration);
+  int (*is_function_node)(TSNode node);
+  TSNode (*binding_name_node)(TSNode node);
   TSNode (*called_name_node)(TSNode node);
+  TSNode (*import_source_node)(TSNode declaration);
+  void (*normalize_import_source)(char *source);
+  char *(*resolve_import)(const char *path, const char *source);
+  TSNode (*import_local_name_node)(TSNode node);
+  TSNode (*imported_name_node)(TSNode node);
+  const char *(*implicit_imported_name)(TSNode node);
+  TSNode (*exported_reference_name_node)(TSNode node);
+  TSNode (*exported_name_node)(TSNode node);
+  const char *(*implicit_export_name)(TSNode input);
   int (*is_exported)(TSNode input);
+  int (*is_entrypoint_name)(const char *name);
 } SlLanguagePack;
 
 extern const SlLanguagePack sl_typescript_pack;

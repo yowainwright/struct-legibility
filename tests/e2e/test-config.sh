@@ -37,6 +37,97 @@ diagnostic="$($output "$fixture" 2>&1)"
 status=$?
 set -e
 expected="$fixture:1:1: error[entrypoint-name] exported entrypoint launch must be named main"
-if [ "$status" -eq 1 ] && [ "$diagnostic" = "$expected" ]; then exit 0; fi
-printf 'custom config failed\nstatus: %s\noutput: %s\n' "$status" "$diagnostic" >&2
+if [ "$status" -ne 1 ] || [ "$diagnostic" != "$expected" ]; then
+  printf 'custom config failed\nstatus: %s\noutput: %s\n' "$status" "$diagnostic" >&2
+  exit 1
+fi
+
+fixture="$repo_root/tests/fixtures/typescript/arrow-custom-rule.ts"
+set +e
+diagnostic="$($output "$fixture" 2>&1)"
+status=$?
+set -e
+expected="$fixture:1:1: error[entrypoint-name] exported entrypoint launch must be named main"
+if [ "$status" -ne 1 ] || [ "$diagnostic" != "$expected" ]; then
+  printf 'arrow function facts failed\nstatus: %s\noutput: %s\n' "$status" "$diagnostic" >&2
+  exit 1
+fi
+
+fixture="$repo_root/tests/fixtures/typescript/re-export.ts"
+set +e
+diagnostic="$($output "$fixture" 2>&1)"
+status=$?
+set -e
+expected="$fixture:1:1: error[entrypoint-name] exported entrypoint launch must be named main"
+if [ "$status" -ne 1 ] || [ "$diagnostic" != "$expected" ]; then
+  printf 're-export facts failed\nstatus: %s\noutput: %s\n' "$status" "$diagnostic" >&2
+  exit 1
+fi
+
+fixture="$repo_root/tests/fixtures/typescript/graph"
+main="$fixture/main.ts"
+helper="$fixture/helper.ts"
+set +e
+diagnostic="$($output "$fixture" 2>&1)"
+status=$?
+set -e
+expected="$main:1:1: error[call-edge] crossFileMain calls helper in $helper"
+if [ "$status" -ne 1 ] || [ "$diagnostic" != "$expected" ]; then
+  printf 'import-aware call graph failed\nstatus: %s\noutput: %s\n' "$status" "$diagnostic" >&2
+  exit 1
+fi
+
+fixture="$repo_root/tests/fixtures/typescript/graph-unrelated"
+if ! "$output" "$fixture" >/dev/null 2>&1; then
+  printf 'unimported call was linked across files\n' >&2
+  exit 1
+fi
+
+fixture="$repo_root/tests/fixtures/typescript/graph-shadow"
+if ! "$output" "$fixture" >/dev/null 2>&1; then
+  printf 'shadowed import was linked across files\n' >&2
+  exit 1
+fi
+
+fixture="$repo_root/tests/fixtures/typescript/graph-destructure"
+if ! "$output" "$fixture" >/dev/null 2>&1; then
+  printf 'destructured shadow was linked across files\n' >&2
+  exit 1
+fi
+
+fixture="$repo_root/tests/fixtures/typescript/graph-default"
+main="$fixture/main.ts"
+helper="$fixture/helper.ts"
+set +e
+diagnostic="$($output "$fixture" 2>&1)"
+status=$?
+set -e
+expected="$main:1:1: error[call-edge] crossFileMain calls helper in $helper"
+if [ "$status" -ne 1 ] || [ "$diagnostic" != "$expected" ]; then
+  printf 'default import call graph failed\nstatus: %s\noutput: %s\n' "$status" "$diagnostic" >&2
+  exit 1
+fi
+
+fixture="$repo_root/tests/fixtures/typescript/graph-directory"
+main="$fixture/main.ts"
+helper="$fixture/helper/index.ts"
+set +e
+diagnostic="$($output "$fixture" 2>&1)"
+status=$?
+set -e
+expected="$main:1:1: error[call-edge] crossFileMain calls helper in $helper"
+if [ "$status" -ne 1 ] || [ "$diagnostic" != "$expected" ]; then
+  printf 'directory import call graph failed\nstatus: %s\noutput: %s\n' "$status" "$diagnostic" >&2
+  exit 1
+fi
+
+fixture="$repo_root/tests/fixtures/typescript/nested-calls.ts"
+if ! "$output" "$fixture" >/dev/null 2>&1; then
+  printf 'nested call was attributed to its outer function\n' >&2
+  exit 1
+fi
+
+fixture="$repo_root/tests/fixtures/typescript/custom-suppressed.ts"
+if "$output" "$fixture" >/dev/null 2>&1; then exit 0; fi
+printf 'custom rule suppression failed\n' >&2
 exit 1

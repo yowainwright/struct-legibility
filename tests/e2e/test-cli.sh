@@ -39,6 +39,17 @@ fixture="$repo_root/tests/fixtures/typescript/export-order.ts"
 expected="$fixture:1:1: error[function-order] helper must appear below exported function main"
 assert_result ci 1 "$expected" "$fixture"
 
+fixture="$repo_root/tests/fixtures/typescript/arrow-function-order.ts"
+expected="$fixture:1:1: error[function-order] helper must appear below caller main"
+assert_result ci 1 "$expected" "$fixture"
+
+fixture="$repo_root/tests/fixtures/typescript/var-after-function.ts"
+expected="$fixture:3:1: error[section-order] constants must appear before functions"
+assert_result ci 1 "$expected" "$fixture"
+
+fixture="$repo_root/tests/fixtures/typescript/re-export.ts"
+assert_result ci 0 "" "$fixture"
+
 fixture="$repo_root/tests/fixtures/typescript/multiple-errors.ts"
 expected="$fixture:1:1: error[function-order] helper must appear below caller main
 $fixture:5:1: error[section-order] public types must appear before functions"
@@ -81,10 +92,12 @@ fi
 generated="$project/generated/ignored.ts"
 hidden="$project/.hidden/ignored.ts"
 dependency="$project/node_modules/ignored.ts"
+nested="$project/src/nested-generated/ignored.ts"
 expected="$hidden:2:1: error[section-order] imports must appear before public types
 $generated:2:1: error[section-order] imports must appear before public types
 $dependency:2:1: error[section-order] imports must appear before public types
-$fixture:2:1: error[section-order] imports must appear before public types"
+$fixture:2:1: error[section-order] imports must appear before public types
+$nested:2:1: error[section-order] imports must appear before public types"
 assert_result ci 1 "$expected" --no-ignore "$project"
 
 fixture="$repo_root/tests/fixtures/typescript/suppressed-function.ts"

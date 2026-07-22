@@ -18,18 +18,37 @@ export interface Declaration {
   readonly kind: DeclarationKind;
   readonly name: string;
   readonly exported: boolean;
+  readonly entrypoint: boolean;
+  readonly exportNames: readonly string[];
   readonly line: number;
   readonly column: number;
   readonly calls: readonly string[];
+  readonly suppressions: readonly string[];
+}
+
+export interface Import {
+  readonly localName: string;
+  readonly importedName: string;
+  readonly source: string;
+  readonly targetPath: string | null;
 }
 
 export interface SourceFile {
   readonly path: string;
   readonly declarations: readonly Declaration[];
+  readonly imports: readonly Import[];
+}
+
+export interface Call {
+  readonly callerPath: string;
+  readonly callerName: string;
+  readonly calleePath: string;
+  readonly calleeName: string;
 }
 
 export interface Project {
   readonly files: readonly SourceFile[];
+  readonly calls: readonly Call[];
 }
 
 declare global {

@@ -16,23 +16,47 @@ typedef struct {
   const char *kind;
   char *name;
   int exported;
+  int entrypoint;
+  char **export_names;
+  size_t export_name_count;
   size_t line;
   size_t column;
   char **calls;
   size_t call_count;
+  char **suppressions;
+  size_t suppression_count;
 } SlDeclarationFact;
 
 typedef struct {
+  char *local_name;
+  char *imported_name;
+  char *source;
+  char *target_path;
+} SlImportFact;
+
+typedef struct {
   char *path;
+  char *resolved_path;
   SlDeclarationFact *declarations;
   size_t declaration_count;
+  SlImportFact *imports;
+  size_t import_count;
 } SlFileFact;
+
+typedef struct {
+  char *caller_path;
+  char *caller_name;
+  char *callee_path;
+  char *callee_name;
+} SlCallFact;
 
 typedef struct {
   SlDiagnostic *diagnostics;
   size_t count;
   SlFileFact *files;
   size_t file_count;
+  SlCallFact *calls;
+  size_t call_count;
 } SlReport;
 
 typedef struct {

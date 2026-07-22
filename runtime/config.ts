@@ -1,6 +1,6 @@
 import type { NativeDiagnostic, Project } from "./native";
 
-export type { Declaration, DeclarationKind, Project, SourceFile } from "./native";
+export type { Call, Declaration, DeclarationKind, Import, Project, SourceFile } from "./native";
 
 export type Severity = "warning" | "error";
 
@@ -44,18 +44,22 @@ export const hasProfile = (config: Config, profile: string): boolean => {
 };
 
 const globSource = (glob: string): string => {
+  const directoryGlob = "\u0000";
+  const anyGlob = "\u0001";
   return glob
     .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-    .replaceAll("**", "\u0000")
+    .replaceAll("**/", directoryGlob)
+    .replaceAll("**", anyGlob)
     .replaceAll("*", "[^/]*")
-    .replaceAll("\u0000", ".*")
-    .replaceAll("?", "[^/]");
+    .replaceAll("?", "[^/]")
+    .replaceAll(directoryGlob, "(?:.*/)?")
+    .replaceAll(anyGlob, ".*");
 };
 
 const matchesGlob = (path: string, glob: string): boolean => {
   const normalizedPath = path.replaceAll("\\", "/");
-  const prefix = glob.startsWith("/") ? "" : "(?:.*/)?";
-  const pattern = new RegExp(`^${prefix}${globSource(glob)}$`);
+  const normalizedGlob = glob.startsWith("/") ? glob.slice(1) : glob;
+  const pattern = new RegExp(`^(?:.*/)?${globSource(normalizedGlob)}$`);
   return pattern.test(normalizedPath);
 };
 
