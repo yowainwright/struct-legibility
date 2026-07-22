@@ -1,1 +1,146 @@
 # struct-legibility
+
+A small structural linter for source files. It checks whether code reads top-down: imports and public types first, entry points and exported functions next, then private helpers.
+
+The analyzer is C11 with Tree-sitter. TQS and QuickJS compile TypeScript configuration into a standalone executable, so users do not need Bun, Node.js, or a JavaScript runtime.
+
+TypeScript (`.ts`) is the first language pack. Go, Python, and Bash are not implemented yet.
+
+## Checks
+
+<!-- built-in rules from src/analyzer.c and declaration categories from src/languages/typescript.c -->
+
+| Rule | Behavior |
+| --- | --- |
+| `section-order` | Enforces imports, public types, constants, then functions. |
+| `function-order` | Keeps `main` and exported functions above private helpers, and callees below their callers. Recursive cycles stay together. |
+| `parse-error` | Reports invalid TypeScript as an error in every profile. |
+
+Diagnostics are deterministic. Directory scans use available CPU cores and honor nested `.gitignore` files by default.
+
+## Build
+
+<!-- prerequisites and build commands from package.json, scripts/build.sh, and CMakeLists.txt -->
+
+Requirements: Bun, CMake 3.24 or newer, a C11 compiler, and Git.
+
+```sh
+bun install
+bun run build
+```
+
+The standalone binary is written to `.build/struct-legibility`.
+
+For the native C CLI without the embedded TypeScript configuration runtime:
+
+```sh
+cmake -S . -B .build/native -DCMAKE_BUILD_TYPE=Release
+cmake --build .build/native --target struct-legibility --parallel
+```
+
+## CLI
+
+<!-- arguments, environment profile, defaults, and exits from runtime/index.ts and src/quickjs_bridge.c -->
+
+```text
+struct-legibility [options] [path...]
+
+options:
+  --profile <name>       Select a compiled profile
+  --format human|json    Select diagnostic output
+  --no-ignore            Include paths excluded by .gitignore
+```
+
+With no paths, the CLI scans the current directory.
+
+```sh
+.build/struct-legibility src
+STRUCT_LEGIBILITY_PROFILE=ci .build/struct-legibility src
+.build/struct-legibility --profile ci --format json src test.ts
+```
+
+The default binary has `local` and `ci` profiles. `local` emits warnings and exits `0`; `ci` emits errors and exits `1` when findings exist. Parse errors always exit `1`. Invalid usage and analysis failures exit `2`.
+
+`STRUCT_LEGIBILITY_PROFILE` selects the environment default. `--profile` takes precedence. Human diagnostics go to stderr; JSON goes to stdout.
+
+## Configuration
+
+<!-- public configuration API and severity resolution from runtime/config.ts and runtime/index.ts -->
+
+A config is a TQS TypeScript entry point compiled into its own binary. It defines severity profiles, ordered file overrides, and optional project-level rules.
+
+```ts
+// @tqs-script
+import { defineConfig, start } from "./runtime";
+
+const config = defineConfig({
+  profiles: {
+    local: {
+      default: "warning",
+      rules: { "section-order": "error" },
+    },
+    ci: { default: "error" },
+  },
+  overrides: [
+    {
+      files: ["**/*.fixture.ts"],
+      profiles: {
+        local: { rules: { "section-order": "warning" } },
+      },
+    },
+  ],
+});
+
+start(config);
+```
+
+```sh
+./scripts/build.sh struct-legibility.config.ts -o .build/struct-legibility
+```
+
+Later matching overrides win. Custom rules have the type `(project: Project) => readonly RuleDiagnostic[]`. They receive immutable files, declarations, imports, local calls, and resolved cross-file call edges.
+
+Configuration runs in the embedded QuickJS sandbox. Runtime module loading, `eval`, and dynamic code execution are unavailable.
+
+## Suppressions
+
+<!-- suppression syntax and scope from declaration_suppression in src/analyzer.c -->
+
+Place `// struct-legibility-disable-next <rule-id> -- <reason>` immediately above a top-level declaration. Built-in suppression IDs are `function-order` and `section-order`; custom rules match their own `ruleId`.
+
+## C library
+
+<!-- public analyzer API from include/struct_legibility.h -->
+
+The static `struct_legibility` target exposes:
+
+```c
+SlStatus sl_analyze(const SlRequest *request, SlReport *report);
+void sl_report_free(SlReport *report);
+```
+
+Set `SlRequest.collect_facts` to include declarations, imports, exports, and call edges in `SlReport`. The full ABI is in `include/struct_legibility.h`.
+
+## Adding a language
+
+<!-- language-pack contract and registry from src/language.h and src/language.c -->
+
+Language support is isolated behind `SlLanguagePack`. A pack supplies extensions, a Tree-sitter grammar, declaration and call extraction, import resolution, export detection, entry-point detection, and cross-file call resolution.
+
+Add a pack under `src/languages/`, register it in `src/language.c`, link its grammar in `CMakeLists.txt`, and add C and end-to-end fixtures. The analyzer, CLI, config runtime, profiles, output, suppressions, and project graph remain shared.
+
+## Development
+
+<!-- development commands and limits from package.json, scripts/check.sh, and scripts/benchmark.sh -->
+
+```sh
+bun run typecheck
+bun run test
+bun run benchmark
+```
+
+The full test command builds both CLIs, runs C and end-to-end tests, verifies the TQS sandbox, and checks a large corpus against limits of 2 seconds, 64 MiB peak RSS, and a 5 MiB binary.
+
+## License
+
+MIT. Third-party notices are in `LICENSES/`.

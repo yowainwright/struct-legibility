@@ -86,11 +86,12 @@ build_binary() {
   local root="$1"
   local tqs_root="$2"
   local generated="$3"
-  local build_dir stable_source
+  local build_dir checksum stable_source
   build_dir="${SL_BUILD_DIR:-$root/.build/native}"
-  stable_source="$build_dir/generated/program.c"
+  checksum="$(cmake -E sha256sum "$generated" | awk '{print $1}')"
+  stable_source="$build_dir/generated/program-$checksum.c"
   mkdir -p "$(dirname "$stable_source")"
-  cp "$generated" "$stable_source"
+  cmake -E copy_if_different "$generated" "$stable_source"
   cmake -S "$root" -B "$build_dir" \
     -DCMAKE_BUILD_TYPE=Release \
     -DSL_QUICKJS_SOURCE="$stable_source" \
