@@ -6,6 +6,7 @@ build_dir="$repo_root/.build/check"
 tqs_binary="$repo_root/.build/struct-legibility"
 
 bun run typecheck
+bun run test:unit
 "$repo_root/tests/e2e/test-build-args.sh"
 cmake -S "$repo_root" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release
 cmake --build "$build_dir" --parallel
@@ -15,4 +16,5 @@ SL_BUILD_DIR="$build_dir" "$repo_root/scripts/build.sh" \
 "$repo_root/tests/e2e/test-tqs.sh" "$tqs_binary"
 SL_BUILD_DIR="$build_dir" "$repo_root/tests/e2e/test-config.sh"
 SL_BUILD_DIR="$build_dir" "$repo_root/tests/e2e/test-sandbox.sh"
+SL_BUILD_DIR="$build_dir" "$repo_root/tests/e2e/test-readme.sh" "$tqs_binary"
 "$repo_root/scripts/benchmark.sh" "$tqs_binary"

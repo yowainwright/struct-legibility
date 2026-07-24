@@ -102,6 +102,101 @@ Later matching overrides win. Custom rules have the type `(project: Project) => 
 
 Configuration runs in the embedded QuickJS sandbox. Runtime module loading, `eval`, and dynamic code execution are unavailable.
 
+## Examples
+
+<!-- runnable source, config, commands, and diagnostics verified by the README E2E -->
+
+Save a file that follows the built-in ordering rules as `main.ts`:
+
+```ts
+interface User {
+  readonly name: string;
+}
+
+const greetingPrefix = "Hello";
+
+export function main(user: User): string {
+  return formatGreeting(user);
+}
+
+function formatGreeting(user: User): string {
+  return `${greetingPrefix}, ${user.name}`;
+}
+```
+
+```sh
+bun run build
+.build/struct-legibility --profile ci main.ts
+```
+
+The command exits `0` without output.
+
+### Custom rule
+
+Save this config as `struct-legibility.config.ts`:
+
+```ts
+// @tqs-script
+import {
+  defineConfig,
+  start,
+  type Project,
+  type RuleDiagnostic,
+} from "./runtime";
+
+type Declaration = Project["files"][number]["declarations"][number];
+
+const isInvalidEntrypoint = (declaration: Declaration): boolean => {
+  const functionDeclaration = declaration.kind === "function";
+  const exportedLaunch = declaration.exported && declaration.name === "launch";
+  return functionDeclaration && exportedLaunch;
+};
+
+const toDiagnostic = (
+  path: string,
+  declaration: Declaration,
+): RuleDiagnostic => {
+  const ruleId = "entrypoint-name";
+  const message = `exported function ${declaration.name} must be named main`;
+  const line = declaration.line;
+  const column = declaration.column;
+  return { ruleId, message, path, line, column };
+};
+
+const entrypointNames = (project: Project): readonly RuleDiagnostic[] => {
+  return project.files.flatMap((file) => {
+    const declarations = file.declarations.filter(isInvalidEntrypoint);
+    return declarations.map((declaration) => toDiagnostic(file.path, declaration));
+  });
+};
+
+const local = { default: "warning" as const };
+const ci = { default: "error" as const };
+const profiles = { local, ci };
+const rules = [entrypointNames];
+const config = defineConfig({ profiles, rules });
+
+start(config);
+```
+
+Given `launch.ts`:
+
+```ts
+export function launch(): void {}
+```
+
+Compile the config and run its binary:
+
+```sh
+./scripts/build.sh struct-legibility.config.ts \
+  -o .build/struct-legibility-custom
+.build/struct-legibility-custom --profile ci launch.ts
+```
+
+```text
+launch.ts:1:1: error[entrypoint-name] exported function launch must be named main
+```
+
 ## Suppressions
 
 <!-- suppression syntax and scope from declaration_suppression in src/analyzer.c -->
@@ -139,7 +234,10 @@ bun run test
 bun run benchmark
 ```
 
-The full test command builds both CLIs, runs C and end-to-end tests, verifies the TQS sandbox, and checks a large corpus against limits of 2 seconds, 64 MiB peak RSS, and a 5 MiB binary.
+The full test command runs TypeScript unit tests, builds both CLIs, runs C and
+end-to-end tests including the README snippets, verifies the TQS sandbox, and
+checks a large corpus against limits of 2 seconds, 64 MiB peak RSS, and a 5 MiB
+binary.
 
 ## License
 

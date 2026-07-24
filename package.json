@@ -7,12 +7,14 @@
     "build": "./scripts/build.sh runtime/cli.ts -o .build/struct-legibility",
     "benchmark": "./scripts/benchmark.sh",
     "test": "./scripts/check.sh",
+    "test:unit": "bun test tests/unit",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@yowainwright/tqs": "github:yowainwright/tqs#a587f389ca08f9f739c7e0bc1f17bd02ad730dec"
   },
   "devDependencies": {
+    "@types/bun": "1.3.9",
     "typescript": "6.0.3"
   }
 }

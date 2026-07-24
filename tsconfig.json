@@ -5,7 +5,13 @@
     "moduleResolution": "Bundler",
     "noEmit": true,
     "strict": true,
-    "target": "ES2023"
+    "target": "ES2023",
+    "types": ["bun"]
   },
-  "include": ["runtime/**/*.ts", "tests/fixtures/config/**/*.ts"]
+  "include": [
+    "runtime/**/*.ts",
+    "tests/fixtures/config/**/*.ts",
+    "tests/fixtures/readme/**/*.ts",
+    "tests/unit/**/*.ts"
+  ]
 }
