@@ -60,7 +60,7 @@ const unexpectedEdges = (project: Project): readonly RuleDiagnostic[] => {
     });
 };
 
-const profiles: Readonly<Record<string, SeverityProfile>> = { local, ci };
+const profiles: Config["profiles"] = { local, ci };
 const overrideErrorRules = { "section-order": "error" as const };
 const overrideErrorLocal: SeverityOverride = { rules: overrideErrorRules };
 const overrideErrorProfiles: ConfigOverride["profiles"] = { local: overrideErrorLocal };

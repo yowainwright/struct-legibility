@@ -31,6 +31,29 @@ if [ "$status" -ne 0 ] || [ "$diagnostic" != "$expected" ]; then
   exit 1
 fi
 
+set +e
+diagnostic="$($output --profile ci "$fixture" 2>&1)"
+status=$?
+set -e
+expected="$fixture:2:1: error[section-order] imports must appear before public types"
+if [ "$status" -ne 1 ] || [ "$diagnostic" != "$expected" ]; then
+  printf 'sparse override profile failed\nstatus: %s\noutput: %s\n' \
+    "$status" "$diagnostic" >&2
+  exit 1
+fi
+
+fixture="$repo_root/tests/fixtures/typescript/function-order.ts"
+set +e
+diagnostic="$($output "$fixture" 2>&1)"
+status=$?
+set -e
+expected="$fixture:1:1: warning[function-order] helper must appear below caller main"
+if [ "$status" -ne 0 ] || [ "$diagnostic" != "$expected" ]; then
+  printf 'sparse rule severity failed\nstatus: %s\noutput: %s\n' \
+    "$status" "$diagnostic" >&2
+  exit 1
+fi
+
 fixture="$repo_root/tests/fixtures/typescript/custom-rule.ts"
 set +e
 diagnostic="$($output "$fixture" 2>&1)"

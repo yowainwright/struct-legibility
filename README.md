@@ -39,6 +39,19 @@ cmake -S . -B .build/native -DCMAKE_BUILD_TYPE=Release
 cmake --build .build/native --target struct-legibility --parallel
 ```
 
+## Dependency maintenance
+
+<!-- dependency maintenance scripts and targets from package.json, .codependencerc, and .pastoralistrc -->
+
+```sh
+nub run deps:check
+nub run deps:update
+nub run overrides:check
+nub run overrides:update
+```
+
+Codependence manages pnpm dependencies, Docker image tags, and GitHub Actions references. Pastoralist audits package-manager overrides and checks medium-or-higher vulnerabilities with OSV without applying automatic fixes.
+
 ## CLI
 
 <!-- arguments, environment profile, defaults, and exits from runtime/index.ts and src/scriptc_bridge.c -->

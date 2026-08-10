@@ -11,6 +11,12 @@ importers:
       '@types/node':
         specifier: 24.10.0
         version: 24.10.0
+      codependence:
+        specifier: 1.0.8
+        version: 1.0.8
+      pastoralist:
+        specifier: 1.13.0
+        version: 1.13.0
       scriptc:
         specifier: 0.0.22
         version: 0.0.22
@@ -149,6 +155,16 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  codependence@1.0.8:
+    resolution: {integrity: sha512-84txLfRSlyObi7MZDoJaUxjbHLdd19FblKxVtsinzOPpDLKUEvkZfiINCskE0iF2uOmsgAwKV6VLl00//XaU2w==}
+    engines: {node: '>=20'}
+    hasBin: true
+
+  pastoralist@1.13.0:
+    resolution: {integrity: sha512-ug6sNNqIBBHeRhpDgbYSuWbMrxH1gu+alEj/fkeilEdu893hb/Af+A3XlwgAAOlKxvMLiUyWz7RW1s2yELNFmw==}
+    engines: {node: '>=20'}
+    hasBin: true
+
   scriptc@0.0.22:
     resolution: {integrity: sha512-gJQ5Johx477Al1EqZOTeXOPsPgwzSOvVljIc9l1S0BqhaffyZtxXa1Mm3YFKZaCV3u4YNAEMsbO9EBgvW1awDg==}
     engines: {node: '>=20'}
@@ -245,6 +261,10 @@ snapshots:
 
   '@typescript/typescript-win32-x64@7.0.2':
     optional: true
+
+  codependence@1.0.8: {}
+
+  pastoralist@1.13.0: {}
 
   scriptc@0.0.22:
     dependencies:

@@ -1,0 +1,29 @@
+{
+  "targets": [
+    {
+      "manager": "pnpm",
+      "files": ["package.json"],
+      "lockfile": true,
+      "mode": "precise"
+    },
+    {
+      "manager": "docker",
+      "ignore": [
+        "**/.git/**",
+        "**/.next/**",
+        "**/.venv/**",
+        "**/node_modules/**",
+        "**/*.dockerignore",
+        ".build/**",
+        "build/**",
+        "cmake-build-*/**",
+        "dist/**"
+      ],
+      "mode": "precise"
+    },
+    {
+      "manager": "github-actions",
+      "mode": "precise"
+    }
+  ]
+}

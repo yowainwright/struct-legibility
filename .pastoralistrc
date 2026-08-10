@@ -1,0 +1,12 @@
+{
+  "checkSecurity": true,
+  "security": {
+    "enabled": true,
+    "provider": "osv",
+    "autoFix": false,
+    "interactive": false,
+    "severityThreshold": "medium",
+    "hasWorkspaceSecurityChecks": false,
+    "strict": true
+  }
+}

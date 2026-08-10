@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "devDependencies": {
     "@types/node": "24.10.0",
+    "codependence": "1.0.8",
+    "pastoralist": "1.13.0",
     "scriptc": "0.0.22",
     "typescript": "6.0.3"
   },
@@ -10,6 +12,10 @@
   "scripts": {
     "build": "./scripts/build.sh runtime/cli.ts -o .build/struct-legibility",
     "benchmark": "./scripts/benchmark.sh",
+    "deps:check": "codependence",
+    "deps:update": "codependence --update",
+    "overrides:check": "pastoralist --dry-run",
+    "overrides:update": "pastoralist",
     "test": "./scripts/check.sh",
     "test:unit": "node --experimental-strip-types --test tests/unit/*.test.ts",
     "typecheck": "tsc -p tsconfig.json"

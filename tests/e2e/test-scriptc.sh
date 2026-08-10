@@ -29,6 +29,19 @@ assert_result 0 "$expected" --profile local "$fixture"
 expected="{\"diagnostics\":[{\"ruleId\":\"section-order\",\"severity\":\"error\",\"path\":\"$fixture\",\"line\":2,\"column\":1,\"message\":\"imports must appear before public types\",\"related\":null}],\"summary\":{\"errors\":1,\"warnings\":0}}"
 assert_result 1 "$expected" --profile ci --format json "$fixture"
 
+expected="usage: struct-legibility [options] [path...]"
+assert_result 2 "$expected" --profile missing "$fixture"
+
+set +e
+output="$(STRUCT_LEGIBILITY_PROFILE=missing "$binary" "$fixture" 2>&1)"
+status=$?
+set -e
+if [ "$status" -ne 2 ] || [ "$output" != "$expected" ]; then
+  printf 'unknown environment profile was accepted\nstatus: %s\noutput: %s\n' \
+    "$status" "$output" >&2
+  exit 1
+fi
+
 project="$repo_root/tests/fixtures/typescript/project"
 set +e
 output="$(cd "$project" && "$binary" --profile ci 2>&1)"

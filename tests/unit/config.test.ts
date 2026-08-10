@@ -3,8 +3,10 @@ import { test } from "node:test";
 
 import {
   defineConfig,
+  hasProfile,
   severityFor,
   type ConfigOverride,
+  type Severity,
   type SeverityProfile,
 } from "../../runtime/config.ts";
 import type { NativeDiagnostic } from "../../runtime/native.ts";
@@ -50,4 +52,30 @@ test("the last matching file override wins", () => {
   const config = defineConfig({ profiles: { local }, overrides });
 
   assert.equal(severityFor(config, "local", diagnostic), "warning");
+});
+
+test("profile lookup rejects missing and inherited keys", () => {
+  const local: SeverityProfile = { default: "warning" };
+  const config = defineConfig({ profiles: { local } });
+
+  assert.equal(hasProfile(config, "missing"), false);
+  assert.equal(hasProfile(config, "toString"), false);
+});
+
+test("sparse severity maps fall back without throwing", () => {
+  const rules: Readonly<Record<string, Severity | undefined>> = {};
+  const local: SeverityProfile = { default: "warning", rules };
+  const config = defineConfig({ profiles: { local } });
+
+  assert.equal(severityFor(config, "local", diagnostic), "warning");
+  assert.equal(severityFor(config, "missing", diagnostic), "error");
+});
+
+test("sparse override profiles leave other profiles unchanged", () => {
+  const local: SeverityProfile = { default: "warning" };
+  const ci: SeverityProfile = { default: "error" };
+  const override: ConfigOverride = { files: ["**/*.ts"], profiles: { local: {} } };
+  const config = defineConfig({ profiles: { local, ci }, overrides: [override] });
+
+  assert.equal(severityFor(config, "ci", diagnostic), "error");
 });
