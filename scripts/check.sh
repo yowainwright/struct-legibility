@@ -7,6 +7,7 @@ scriptc_binary="$repo_root/.build/struct-legibility"
 
 nub run typecheck
 nub run test:unit
+"$repo_root/tests/e2e/test-setup.sh"
 "$repo_root/tests/e2e/test-build-args.sh"
 cmake -S "$repo_root" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release
 cmake --build "$build_dir" --parallel

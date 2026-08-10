@@ -2,11 +2,14 @@
 
 ## Setup
 
+<!-- setup commands from mise.toml, package.json, and scripts/setup.sh -->
+
 Requirements are mise, CMake 3.24 or newer, Clang, Git, and ShellCheck.
 
 ```sh
 mise install
 nub ci
+nub run setup
 nub run test
 ```
 

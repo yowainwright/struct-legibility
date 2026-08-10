@@ -16,6 +16,7 @@
     "deps:update": "codependence --update",
     "overrides:check": "pastoralist --dry-run",
     "overrides:update": "pastoralist",
+    "setup": "./scripts/setup.sh",
     "test": "./scripts/check.sh",
     "test:unit": "node --experimental-strip-types --test tests/unit/*.test.ts",
     "typecheck": "tsc -p tsconfig.json"

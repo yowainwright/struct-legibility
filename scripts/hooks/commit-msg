@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# struct-legibility-managed-hook
+set -euo pipefail
+
+message="$(sed -n '1p' "$1")"
+pattern='^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([[:alnum:]_.\/-]+\))?!?: .+'
+
+if [[ "$message" =~ $pattern ]]; then
+  exit 0
+fi
+
+printf 'Invalid commit message: %s\n' "$message" >&2
+printf 'Expected: <type>(<scope>): <message>\n' >&2
+exit 1

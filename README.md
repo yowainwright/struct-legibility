@@ -20,15 +20,18 @@ Diagnostics are deterministic. Directory scans use available CPU cores and honor
 
 ## Build
 
-<!-- prerequisites and build commands from mise.toml, package.json, scripts/build.sh, and CMakeLists.txt -->
+<!-- prerequisites and build commands from mise.toml, package.json, scripts/setup.sh, scripts/build.sh, and CMakeLists.txt -->
 
 Requirements: mise, CMake 3.24 or newer, Clang, and Git. mise provisions Node.js 26 and Nub; Nub provisions pnpm. CI also tests Node.js 22 and 24.
 
 ```sh
 mise install
 nub install
+nub run setup
 nub run build
 ```
+
+`nub run setup` installs managed hooks in `.git/hooks` and preserves existing unmanaged hooks.
 
 The standalone binary is written to `.build/struct-legibility`.
 
