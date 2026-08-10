@@ -10,6 +10,8 @@ cleanup() {
   rm -rf "$temporary_dir"
 }
 
+trap cleanup EXIT
+
 assert_clean_source() {
   local source="$fixture_dir/main.ts"
   set +e
@@ -36,7 +38,6 @@ assert_custom_rule() {
   exit 1
 }
 
-trap cleanup EXIT
 assert_clean_source
 
 custom_binary="$temporary_dir/struct-legibility-custom"

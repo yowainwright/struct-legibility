@@ -1,13 +1,7 @@
 import { hasProfile, severityFor, type Config, type RuleDiagnostic, type Severity } from "./config";
-import type {
-  Call,
-  Declaration,
-  Import,
-  NativeDiagnostic,
-  NativeReport,
-  Project,
-  SourceFile,
-} from "./native";
+import type { Declaration, NativeDiagnostic, NativeReport, Project } from "./native";
+import { analyze, defaultProfile, write } from "./native";
+import { freezeProject } from "./project";
 
 export {
   defineConfig,
@@ -45,7 +39,7 @@ const withDefaultPath = (options: CliOptions): CliOptions => {
 };
 
 const defaultOptions = (config: Config): CliOptions | null => {
-  const profile = __slDefaultProfile();
+  const profile = defaultProfile();
   if (!hasProfile(config, profile)) return null;
   return { profile, format: "human", useGitignore: true, paths: [] };
 };
@@ -78,9 +72,10 @@ const parseOptions = (
   options: CliOptions,
   config: Config,
 ): CliOptions | null => {
-  const [argument, value] = args;
-  if (argument === undefined) return withDefaultPath(options);
+  if (args.length === 0) return withDefaultPath(options);
+  const argument = args[0];
   if (!argument.startsWith("-")) return { ...options, paths: args };
+  const value = args.length > 1 ? args[1] : undefined;
   const next = parseNamedOption(argument, value, options, config);
   if (next === null) return null;
   return parseOptions(args.slice(optionWidth(argument)), next, config);
@@ -116,31 +111,6 @@ const formatJson = (diagnostics: readonly OutputDiagnostic[]): string => {
 const asNativeDiagnostic = (diagnostic: RuleDiagnostic): NativeDiagnostic => {
   const fixedError = false;
   return { ...diagnostic, fixedError };
-};
-
-const freezeDeclaration = (declaration: Declaration): Declaration => {
-  const calls = Object.freeze([...declaration.calls]);
-  const suppressions = Object.freeze([...declaration.suppressions]);
-  const exportNames = Object.freeze([...declaration.exportNames]);
-  return Object.freeze({ ...declaration, calls, suppressions, exportNames });
-};
-
-const freezeImport = (value: Import): Import => Object.freeze({ ...value });
-
-const freezeFile = (file: SourceFile): SourceFile => {
-  const declarations = file.declarations.map(freezeDeclaration);
-  const imports = file.imports.map(freezeImport);
-  const frozenDeclarations = Object.freeze(declarations);
-  const frozenImports = Object.freeze(imports);
-  return Object.freeze({ ...file, declarations: frozenDeclarations, imports: frozenImports });
-};
-
-const freezeCall = (call: Call): Call => Object.freeze({ ...call });
-
-const freezeProject = (project: Project): Project => {
-  const files = Object.freeze(project.files.map(freezeFile));
-  const calls = Object.freeze(project.calls.map(freezeCall));
-  return Object.freeze({ files, calls });
 };
 
 const declarationSuppresses = (declaration: Declaration, diagnostic: RuleDiagnostic): boolean => {
@@ -179,31 +149,31 @@ const emitReport = (report: NativeReport, options: CliOptions, config: Config): 
   });
   const hasErrors = diagnostics.some((diagnostic) => diagnostic.severity === "error");
   const output = formattedOutput(diagnostics, options.format);
-  if (output.length > 0) __slWrite(`${output}\n`, options.format === "human");
+  if (output.length > 0) write(`${output}\n`, options.format === "human");
   return hasErrors ? 1 : 0;
 };
 
 const usageError = (): number => {
-  __slWrite("usage: struct-legibility [options] [path...]\n", true);
+  write("usage: struct-legibility [options] [path...]\n", true);
   return 2;
 };
 
 const run = (config: Config): number => {
   const defaults = defaultOptions(config);
   if (defaults === null) return usageError();
-  const options = parseOptions(scriptArgs.slice(1), defaults, config);
+  const options = parseOptions(process.argv.slice(2), defaults, config);
   if (options === null) return usageError();
   try {
     const collectFacts = (config.rules?.length ?? 0) > 0;
-    const report = __slAnalyze(options.paths, options.useGitignore, collectFacts);
+    const report = analyze(options.paths, options.useGitignore, collectFacts);
     return emitReport(report, options, config);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    __slWrite(`struct-legibility: ${message}\n`, true);
+    write(`struct-legibility: ${message}\n`, true);
     return 2;
   }
 };
 
 export const start = (config: Config): void => {
-  __slSetExitCode(run(config));
+  process.exit(run(config));
 };

@@ -40,7 +40,7 @@ export const defineConfig = <ConfigType extends Config>(config: ConfigType): Con
 };
 
 export const hasProfile = (config: Config, profile: string): boolean => {
-  return Object.hasOwn(config.profiles, profile);
+  return config.profiles[profile] !== undefined;
 };
 
 const globSource = (glob: string): string => {
@@ -48,16 +48,16 @@ const globSource = (glob: string): string => {
   const anyGlob = "\u0001";
   return glob
     .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-    .replaceAll("**/", directoryGlob)
-    .replaceAll("**", anyGlob)
-    .replaceAll("*", "[^/]*")
-    .replaceAll("?", "[^/]")
-    .replaceAll(directoryGlob, "(?:.*/)?")
-    .replaceAll(anyGlob, ".*");
+    .replace(/\*\*\//g, directoryGlob)
+    .replace(/\*\*/g, anyGlob)
+    .replace(/\*/g, "[^/]*")
+    .replace(/\?/g, "[^/]")
+    .replace(new RegExp(directoryGlob, "g"), "(?:.*/)?")
+    .replace(new RegExp(anyGlob, "g"), ".*");
 };
 
 const matchesGlob = (path: string, glob: string): boolean => {
-  const normalizedPath = path.replaceAll("\\", "/");
+  const normalizedPath = path.replace(/\\/g, "/");
   const normalizedGlob = glob.startsWith("/") ? glob.slice(1) : glob;
   const pattern = new RegExp(`^(?:.*/)?${globSource(normalizedGlob)}$`);
   return pattern.test(normalizedPath);

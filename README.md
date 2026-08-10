@@ -2,7 +2,7 @@
 
 A small structural linter for source files. It checks whether code reads top-down: imports and public types first, entry points and exported functions next, then private helpers.
 
-The analyzer is C11 with Tree-sitter. TQS and QuickJS compile TypeScript configuration into a standalone executable, so users do not need Bun, Node.js, or a JavaScript runtime.
+The analyzer is C11 with Tree-sitter. scriptc compiles the TypeScript configuration and links the analyzer through native FFI. The standalone executable needs no Node.js or JavaScript runtime.
 
 TypeScript (`.ts`) is the first language pack. Go, Python, and Bash are not implemented yet.
 
@@ -20,13 +20,14 @@ Diagnostics are deterministic. Directory scans use available CPU cores and honor
 
 ## Build
 
-<!-- prerequisites and build commands from package.json, scripts/build.sh, and CMakeLists.txt -->
+<!-- prerequisites and build commands from mise.toml, package.json, scripts/build.sh, and CMakeLists.txt -->
 
-Requirements: Bun, CMake 3.24 or newer, a C11 compiler, and Git.
+Requirements: mise, CMake 3.24 or newer, Clang, and Git. mise provisions Node.js 26 and Nub; Nub provisions pnpm. CI also tests Node.js 22 and 24.
 
 ```sh
-bun install
-bun run build
+mise install
+nub install
+nub run build
 ```
 
 The standalone binary is written to `.build/struct-legibility`.
@@ -40,7 +41,7 @@ cmake --build .build/native --target struct-legibility --parallel
 
 ## CLI
 
-<!-- arguments, environment profile, defaults, and exits from runtime/index.ts and src/quickjs_bridge.c -->
+<!-- arguments, environment profile, defaults, and exits from runtime/index.ts and src/scriptc_bridge.c -->
 
 ```text
 struct-legibility [options] [path...]
@@ -67,32 +68,9 @@ The default binary has `local` and `ci` profiles. `local` emits warnings and exi
 
 <!-- public configuration API and severity resolution from runtime/config.ts and runtime/index.ts -->
 
-A config is a TQS TypeScript entry point compiled into its own binary. It defines severity profiles, ordered file overrides, and optional project-level rules.
+A config is a TypeScript entry point compiled into its own binary by scriptc. It defines severity profiles, ordered file overrides, and optional project-level rules.
 
-```ts
-// @tqs-script
-import { defineConfig, start } from "./runtime";
-
-const config = defineConfig({
-  profiles: {
-    local: {
-      default: "warning",
-      rules: { "section-order": "error" },
-    },
-    ci: { default: "error" },
-  },
-  overrides: [
-    {
-      files: ["**/*.fixture.ts"],
-      profiles: {
-        local: { rules: { "section-order": "warning" } },
-      },
-    },
-  ],
-});
-
-start(config);
-```
+See the custom-rule example below for a complete compiled configuration.
 
 ```sh
 ./scripts/build.sh struct-legibility.config.ts -o .build/struct-legibility
@@ -100,7 +78,7 @@ start(config);
 
 Later matching overrides win. Custom rules have the type `(project: Project) => readonly RuleDiagnostic[]`. They receive immutable files, declarations, imports, local calls, and resolved cross-file call edges.
 
-Configuration runs in the embedded QuickJS sandbox. Runtime module loading, `eval`, and dynamic code execution are unavailable.
+Configuration is compiled through scriptc's static tier. The build rejects `eval`, dynamic code, and other constructs that would require an embedded JavaScript engine.
 
 ## Examples
 
@@ -125,7 +103,7 @@ function formatGreeting(user: User): string {
 ```
 
 ```sh
-bun run build
+nub run build
 .build/struct-legibility --profile ci main.ts
 ```
 
@@ -136,12 +114,14 @@ The command exits `0` without output.
 Save this config as `struct-legibility.config.ts`:
 
 ```ts
-// @tqs-script
 import {
   defineConfig,
   start,
+  type Config,
   type Project,
+  type Rule,
   type RuleDiagnostic,
+  type SeverityProfile,
 } from "./runtime";
 
 type Declaration = Project["files"][number]["declarations"][number];
@@ -170,11 +150,14 @@ const entrypointNames = (project: Project): readonly RuleDiagnostic[] => {
   });
 };
 
-const local = { default: "warning" as const };
-const ci = { default: "error" as const };
-const profiles = { local, ci };
-const rules = [entrypointNames];
-const config = defineConfig({ profiles, rules });
+const localSeverity = "warning" as const;
+const ciSeverity = "error" as const;
+const local: SeverityProfile = { default: localSeverity };
+const ci: SeverityProfile = { default: ciSeverity };
+const profiles: Config["profiles"] = { local, ci };
+const rules: readonly Rule[] = [entrypointNames];
+const configInput: Config = { profiles, rules };
+const config = defineConfig(configInput);
 
 start(config);
 ```
@@ -229,13 +212,13 @@ Add a pack under `src/languages/`, register it in `src/language.c`, link its gra
 <!-- development commands and limits from package.json, scripts/check.sh, and scripts/benchmark.sh -->
 
 ```sh
-bun run typecheck
-bun run test
-bun run benchmark
+nub run typecheck
+nub run test
+nub run benchmark
 ```
 
 The full test command runs TypeScript unit tests, builds both CLIs, runs C and
-end-to-end tests including the README snippets, verifies the TQS sandbox, and
+end-to-end tests including the README snippets, verifies static scriptc builds, and
 checks a large corpus against limits of 2 seconds, 64 MiB peak RSS, and a 5 MiB
 binary.
 

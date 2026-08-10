@@ -11,7 +11,7 @@ Describe the problem and the resulting behavior.
 
 ## Validation
 
-- [ ] `bun run test`
+- [ ] `nub run test`
 - [ ] `shellcheck scripts/*.sh tests/e2e/*.sh`
 - [ ] Tests cover changed behavior
 - [ ] Public API and configuration changes are documented

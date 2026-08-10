@@ -1,12 +1,13 @@
-import { expect, test } from "bun:test";
+import assert from "node:assert/strict";
+import { test } from "node:test";
 
 import {
   defineConfig,
   severityFor,
   type ConfigOverride,
   type SeverityProfile,
-} from "../../runtime/config";
-import type { NativeDiagnostic } from "../../runtime/native";
+} from "../../runtime/config.ts";
+import type { NativeDiagnostic } from "../../runtime/native.ts";
 
 const diagnostic: NativeDiagnostic = {
   path: "src/main.ts",
@@ -22,7 +23,7 @@ test("rule severity takes precedence over the profile default", () => {
   const local: SeverityProfile = { default: "warning", rules };
   const config = defineConfig({ profiles: { local } });
 
-  expect(severityFor(config, "local", diagnostic)).toBe("error");
+  assert.equal(severityFor(config, "local", diagnostic), "error");
 });
 
 test("fixed diagnostics cannot be downgraded", () => {
@@ -30,7 +31,7 @@ test("fixed diagnostics cannot be downgraded", () => {
   const config = defineConfig({ profiles: { local } });
   const fixedDiagnostic = { ...diagnostic, fixedError: true };
 
-  expect(severityFor(config, "local", fixedDiagnostic)).toBe("error");
+  assert.equal(severityFor(config, "local", fixedDiagnostic), "error");
 });
 
 test("the last matching file override wins", () => {
@@ -42,11 +43,11 @@ test("the last matching file override wins", () => {
     profiles: { local: errorLocal },
   };
   const warningOverride: ConfigOverride = {
-    files: ["/src/**/*.ts"],
+    files: ["src/**/*.ts"],
     profiles: { local: warningLocal },
   };
   const overrides = [errorOverride, warningOverride];
   const config = defineConfig({ profiles: { local }, overrides });
 
-  expect(severityFor(config, "local", diagnostic)).toBe("warning");
+  assert.equal(severityFor(config, "local", diagnostic), "warning");
 });

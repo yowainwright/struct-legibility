@@ -53,65 +53,42 @@ endif()
 add_executable(struct-legibility src/cli.c)
 target_link_libraries(struct-legibility PRIVATE struct_legibility)
 
-if(SL_TQS_ROOT)
-  if(SL_QUICKJS_ROOT)
-    set(quickjs_dir ${SL_QUICKJS_ROOT})
-  elseif(EXISTS ${SL_TQS_ROOT}/deps/quickjs-ng/quickjs.c)
-    set(quickjs_dir ${SL_TQS_ROOT}/deps/quickjs-ng)
-  else()
-    FetchContent_Declare(
-      quickjs_ng_source
-      GIT_REPOSITORY https://github.com/quickjs-ng/quickjs.git
-      GIT_TAG d35af9df0d43db349621b9a1ede5d4a21b02c616
-      SOURCE_SUBDIR source-only
-    )
-    FetchContent_MakeAvailable(quickjs_ng_source)
-    set(quickjs_dir ${quickjs_ng_source_SOURCE_DIR})
-  endif()
-  add_executable(struct-legibility-qjsc EXCLUDE_FROM_ALL
-    ${quickjs_dir}/qjsc.c
-    ${quickjs_dir}/quickjs.c
-    ${quickjs_dir}/quickjs-libc.c
-    ${quickjs_dir}/libregexp.c
-    ${quickjs_dir}/libunicode.c
-    ${quickjs_dir}/dtoa.c
-  )
-  target_include_directories(struct-legibility-qjsc PRIVATE ${quickjs_dir})
-  target_compile_definitions(struct-legibility-qjsc PRIVATE _GNU_SOURCE QUICKJS_NG_BUILD)
-  target_link_libraries(struct-legibility-qjsc PRIVATE Threads::Threads ${CMAKE_DL_LIBS} m)
-endif()
+add_library(struct_legibility_scriptc STATIC src/scriptc_bridge.c)
+target_include_directories(struct_legibility_scriptc PRIVATE include)
+target_link_libraries(struct_legibility_scriptc PRIVATE struct_legibility)
 
-if(SL_QUICKJS_SOURCE)
-  if(NOT SL_TQS_ROOT)
-    message(FATAL_ERROR "SL_TQS_ROOT is required with SL_QUICKJS_SOURCE")
-  endif()
-  add_library(struct_legibility_quickjs_bridge STATIC src/quickjs_bridge.c)
-  target_include_directories(struct_legibility_quickjs_bridge PRIVATE include ${quickjs_dir} src)
-  target_link_libraries(struct_legibility_quickjs_bridge PRIVATE struct_legibility)
-  add_executable(struct-legibility-tqs EXCLUDE_FROM_ALL
-    ${SL_QUICKJS_SOURCE}
-    ${quickjs_dir}/quickjs.c
-    ${quickjs_dir}/quickjs-libc.c
-    ${quickjs_dir}/libregexp.c
-    ${quickjs_dir}/libunicode.c
-    ${quickjs_dir}/dtoa.c
-  )
-  target_include_directories(struct-legibility-tqs PRIVATE ${quickjs_dir} src)
-  target_compile_definitions(struct-legibility-tqs PRIVATE _GNU_SOURCE QUICKJS_NG_BUILD)
-  target_link_libraries(struct-legibility-tqs PRIVATE
-    struct_legibility_quickjs_bridge
-    Threads::Threads
-    ${CMAKE_DL_LIBS}
-    m
-  )
-endif()
+file(GENERATE
+  OUTPUT "${CMAKE_BINARY_DIR}/struct-legibility-ffi.json"
+  CONTENT "{
+  \"ffi_format\": 1,
+  \"functions\": [
+    {
+      \"name\": \"slScriptcAnalyze\",
+      \"symbol\": \"sl_scriptc_analyze\",
+      \"params\": [\"string\", \"bool\", \"bool\", \"string\"],
+      \"returns\": \"u32\"
+    },
+    {
+      \"name\": \"slScriptcWrite\",
+      \"symbol\": \"sl_scriptc_write\",
+      \"params\": [\"string\", \"bool\"],
+      \"returns\": \"u32\"
+    }
+  ],
+  \"libraries\": [
+    \"$<TARGET_FILE:struct_legibility_scriptc>\",
+    \"$<TARGET_FILE:struct_legibility>\",
+    \"$<TARGET_FILE:tree_sitter_typescript>\",
+    \"$<TARGET_FILE:tree-sitter>\"
+  ],
+  \"system_libraries\": [\"pthread\"]
+}
+")
 
 if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
   target_compile_options(struct_legibility PRIVATE -Wall -Wextra -Wpedantic -Werror)
   target_compile_options(struct-legibility PRIVATE -Wall -Wextra -Wpedantic -Werror)
-  if(TARGET struct_legibility_quickjs_bridge)
-    target_compile_options(struct_legibility_quickjs_bridge PRIVATE -Wall -Wextra -Wpedantic -Werror)
-  endif()
+  target_compile_options(struct_legibility_scriptc PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
 if(BUILD_TESTING)

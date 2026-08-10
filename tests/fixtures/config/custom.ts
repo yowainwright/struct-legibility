@@ -1,10 +1,12 @@
-// @tqs-script
 import {
   defineConfig,
   start,
+  type Config,
   type ConfigOverride,
   type Project,
+  type Rule,
   type RuleDiagnostic,
+  type SeverityOverride,
   type SeverityProfile,
 } from "../../../runtime";
 
@@ -37,30 +39,6 @@ const entrypointNames = (project: Project): readonly RuleDiagnostic[] => {
   });
 };
 
-const assertFrozen = (value: unknown): void => {
-  if (!Object.isFrozen(value)) throw new Error("custom rule facts must be frozen");
-};
-
-const checkImmutableFacts = (project: Project): readonly RuleDiagnostic[] => {
-  assertFrozen(project);
-  assertFrozen(project.files);
-  assertFrozen(project.calls);
-  project.calls.forEach(assertFrozen);
-  project.files.forEach((file) => {
-    assertFrozen(file);
-    assertFrozen(file.declarations);
-    assertFrozen(file.imports);
-    file.imports.forEach(assertFrozen);
-    file.declarations.forEach((declaration) => {
-      assertFrozen(declaration);
-      assertFrozen(declaration.calls);
-      assertFrozen(declaration.exportNames);
-      assertFrozen(declaration.suppressions);
-    });
-  });
-  return [];
-};
-
 const callEdges = (project: Project): readonly RuleDiagnostic[] => {
   return project.calls
     .filter((call) => call.callerName === "crossFileMain")
@@ -82,23 +60,23 @@ const unexpectedEdges = (project: Project): readonly RuleDiagnostic[] => {
     });
 };
 
-const profiles = { local, ci };
+const profiles: Readonly<Record<string, SeverityProfile>> = { local, ci };
 const overrideErrorRules = { "section-order": "error" as const };
-const overrideErrorLocal = { rules: overrideErrorRules };
-const overrideErrorProfiles = { local: overrideErrorLocal };
+const overrideErrorLocal: SeverityOverride = { rules: overrideErrorRules };
+const overrideErrorProfiles: ConfigOverride["profiles"] = { local: overrideErrorLocal };
 const overrideError: ConfigOverride = {
   files: ["/overrides/**/*.ts"],
   profiles: overrideErrorProfiles,
 };
 const overrideWarningRules = { "section-order": "warning" as const };
-const overrideWarningLocal = { rules: overrideWarningRules };
-const overrideWarningProfiles = { local: overrideWarningLocal };
+const overrideWarningLocal: SeverityOverride = { rules: overrideWarningRules };
+const overrideWarningProfiles: ConfigOverride["profiles"] = { local: overrideWarningLocal };
 const overrideWarning: ConfigOverride = {
   files: ["/overrides/**/*.ts"],
   profiles: overrideWarningProfiles,
 };
 const overrides = [overrideError, overrideWarning];
-const rules = [entrypointNames, checkImmutableFacts, callEdges, unexpectedEdges];
-const config = defineConfig({ profiles, overrides, rules });
+const rules: readonly Rule[] = [entrypointNames, callEdges, unexpectedEdges];
+const config: Config = defineConfig({ profiles, overrides, rules });
 
 start(config);

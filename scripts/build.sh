@@ -40,45 +40,26 @@ repo_root() {
   cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd
 }
 
-resolve_tqs_root() {
-  local root
-  root="$(repo_root)"
-  if [ -n "${TQS_ROOT:-}" ]; then printf '%s\n' "$TQS_ROOT"; return; fi
-  if [ -d "$root/node_modules/@yowainwright/tqs/src" ]; then
-    printf '%s\n' "$root/node_modules/@yowainwright/tqs"
-    return
-  fi
-  if [ -d "$root/../tqs/dist" ]; then printf '%s\n' "$root/../tqs"; return; fi
-  return 1
-}
-
-resolve_tqs_cli() {
-  local tqs_root="$1"
-  local root="$2"
-  if [ -f "$tqs_root/dist/cli/index.js" ]; then
-    printf '%s\n' "$tqs_root/dist/cli/index.js"
-    return
-  fi
-  local output_dir="$root/.build/tqs-cli"
-  local output="$output_dir/index.js"
-  mkdir -p "$output_dir"
-  bun build "$tqs_root/src/cli/index.ts" \
-    --outfile "$output" \
-    --target node \
-    --minify \
-    --define '__VERSION__="0.0.5"' >&2
-  printf '%s\n' "$output"
+build_native_bridge() {
+  local root="$1"
+  local build_dir
+  build_dir="${SL_BUILD_DIR:-$root/.build/native}"
+  cmake -S "$root" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release >&2
+  cmake --build "$build_dir" --target struct_legibility_scriptc --parallel >&2
+  printf '%s\n' "$build_dir/struct-legibility-ffi.json"
 }
 
 main() {
   parse_args "$@" || exit 2
-  local root tqs_root tqs_cli backend
+  local root ffi_manifest scriptc
   root="$(repo_root)"
-  tqs_root="$(resolve_tqs_root)"
-  tqs_cli="$(resolve_tqs_cli "$tqs_root" "$root")"
-  backend="$root/scripts/tqs-qjsc.sh"
-  TQS_QJSC="$backend" TQS_ROOT="$tqs_root" \
-    bun "$tqs_cli" "$entry" -o "$output"
+  ffi_manifest="$(build_native_bridge "$root")"
+  scriptc="$root/node_modules/.bin/scriptc"
+  if [ ! -x "$scriptc" ]; then
+    echo "scriptc not installed: $scriptc" >&2
+    exit 2
+  fi
+  "$scriptc" build "$entry" --ffi "$ffi_manifest" --no-keep-c -o "$output"
 }
 
 main "$@"

@@ -1,9 +1,11 @@
-// @tqs-script
 import {
   defineConfig,
   start,
+  type Config,
   type Project,
+  type Rule,
   type RuleDiagnostic,
+  type SeverityProfile,
 } from "../../../runtime";
 
 type Declaration = Project["files"][number]["declarations"][number];
@@ -32,10 +34,10 @@ const entrypointNames = (project: Project): readonly RuleDiagnostic[] => {
   });
 };
 
-const local = { default: "warning" as const };
-const ci = { default: "error" as const };
-const profiles = { local, ci };
-const rules = [entrypointNames];
-const config = defineConfig({ profiles, rules });
+const local: SeverityProfile = { default: "warning" };
+const ci: SeverityProfile = { default: "error" };
+const profiles: Config["profiles"] = { local, ci };
+const rules: readonly Rule[] = [entrypointNames];
+const config: Config = defineConfig({ profiles, rules });
 
 start(config);

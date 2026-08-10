@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-binary_input="${1:-$repo_root/build/struct-legibility-tqs}"
+binary_input="${1:-$repo_root/.build/struct-legibility}"
 binary="$(cd "$(dirname "$binary_input")" && pwd)/$(basename "$binary_input")"
 fixture="$repo_root/tests/fixtures/typescript/section-order.ts"
 
@@ -16,7 +16,7 @@ assert_result() {
   local status=$?
   set -e
   if [ "$status" -eq "$expected_status" ] && [ "$output" = "$expected_output" ]; then return; fi
-  printf 'unexpected TQS result\nstatus: %s\noutput: %s\n' "$status" "$output" >&2
+  printf 'unexpected scriptc result\nstatus: %s\noutput: %s\n' "$status" "$output" >&2
   exit 1
 }
 
