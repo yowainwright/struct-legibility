@@ -1,6 +1,9 @@
 {
   "name": "struct-legibility",
   "version": "0.1.0",
+  "engines": {
+    "node": ">=22.6"
+  },
   "devDependencies": {
     "@types/node": "24.10.0",
     "codependence": "1.0.8",

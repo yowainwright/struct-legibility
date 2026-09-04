@@ -18,4 +18,3 @@ SL_BUILD_DIR="$build_dir" "$repo_root/scripts/build.sh" \
 SL_BUILD_DIR="$build_dir" "$repo_root/tests/e2e/test-config.sh"
 SL_BUILD_DIR="$build_dir" "$repo_root/tests/e2e/test-sandbox.sh"
 SL_BUILD_DIR="$build_dir" "$repo_root/tests/e2e/test-readme.sh" "$scriptc_binary"
-"$repo_root/scripts/benchmark.sh" "$scriptc_binary"

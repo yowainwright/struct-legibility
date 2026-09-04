@@ -53,10 +53,8 @@ jobs:
           )"
           test "$GITHUB_REF_NAME" = "v$package_version"
 
-      - name: Typecheck and build
-        run: |
-          nub run typecheck
-          nub run build
+      - name: Test
+        run: nub run test
 
       - name: Package binary
         env:

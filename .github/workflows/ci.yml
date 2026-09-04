@@ -64,10 +64,18 @@ jobs:
 
       - name: Check shell scripts
         if: runner.os == 'Linux'
-        run: shellcheck scripts/*.sh tests/e2e/*.sh
+        run: shellcheck scripts/*.sh scripts/hooks/* tests/e2e/*.sh
+
+      - name: Check dependency overrides
+        if: matrix.os == 'ubuntu-24.04' && matrix.node == 26
+        run: nub run overrides:check
 
       - name: Test
         run: nub run test
+
+      - name: Benchmark
+        if: matrix.os == 'ubuntu-24.04' && matrix.node == 26
+        run: nub run benchmark
 
       - name: Upload binary
         if: matrix.upload
