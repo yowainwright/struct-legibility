@@ -9,7 +9,7 @@
     "codependence": "1.0.8",
     "pastoralist": "1.13.0",
     "scriptc": "0.0.22",
-    "typescript": "6.0.3"
+    "typescript": "7.0.2"
   },
   "private": true,
   "scripts": {
