@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-binary="${1:-$repo_root/.build/struct-legibility}"
+binary="${1:-$repo_root/.build/struct-lint}"
 temporary_dir=""
 
 cleanup() {
@@ -13,7 +13,7 @@ make_corpus() {
   local corpus="$1"
   local seed="$repo_root/tests/fixtures/performance/typescript-100-lines.ts"
   local generator="$temporary_dir/generate-corpus"
-  mkdir -p "$corpus"
+  mkdir -p "$corpus/.git"
   cc -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror \
     "$repo_root/tests/performance/generate-corpus.c" -o "$generator"
   "$generator" "$seed" "$corpus"
@@ -88,12 +88,12 @@ verify_metrics() {
 
 main() {
   if [ ! -x "$binary" ]; then printf 'binary not executable: %s\n' "$binary" >&2; exit 2; fi
-  temporary_dir="$(mktemp -d "${TMPDIR:-/tmp}/struct-legibility-benchmark.XXXXXX")"
+  temporary_dir="$(mktemp -d "${TMPDIR:-/tmp}/struct-lint-benchmark.XXXXXX")"
   trap cleanup EXIT
   local corpus="$temporary_dir/corpus"
   local metrics="$temporary_dir/metrics"
   make_corpus "$corpus"
-  measure "$corpus" "$metrics"
+  measure "$corpus" "$metrics" || { cat "$metrics" >&2; exit 1; }
   local seconds rss_kib bytes
   seconds="$(metric_value real "$metrics")"
   rss_kib="$(read_rss_kib "$metrics")"

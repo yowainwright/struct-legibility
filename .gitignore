@@ -1,8 +1,13 @@
-# Prerequisites
-*.d
-build/
+# Dependencies
 node_modules/
+
+# Build output
 .build/
+build/
+cmake-build-*/
+dist/
+.pnpm-store/
+*.d
 
 # Object files
 *.o
@@ -57,10 +62,18 @@ dkms.conf
 # debug information files
 *.dwo
 
-# Beads / Dolt files (added by bd init)
-.dolt/
-*.db
-.beads-credential-key
+# Local agent tooling
+.agents/
 .claude/
+.codex/
+AGENTS.md
 CLAUDE.md
+
+# Beads / Dolt state
 .beads/
+.dolt/
+.beads-credential-key
+
+# OS metadata
+.DS_Store
+*.log

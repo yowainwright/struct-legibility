@@ -1,5 +1,5 @@
-#ifndef STRUCT_LEGIBILITY_H
-#define STRUCT_LEGIBILITY_H
+#ifndef STRUCT_LINT_H
+#define STRUCT_LINT_H
 
 #include <stddef.h>
 

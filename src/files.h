@@ -1,10 +1,15 @@
-#ifndef STRUCT_LEGIBILITY_FILES_H
-#define STRUCT_LEGIBILITY_FILES_H
+#ifndef STRUCT_LINT_FILES_H
+#define STRUCT_LINT_FILES_H
 
-#include "struct_legibility.h"
+#include "struct_lint.h"
 
 typedef struct {
-  char **paths;
+  char *path;
+  char *resolved_path;
+} SlFile;
+
+typedef struct {
+  SlFile *items;
   size_t count;
 } SlFileList;
 

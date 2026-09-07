@@ -1,18 +1,36 @@
 {
-  "name": "struct-legibility",
+  "name": "struct-lint",
   "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "build": "./scripts/build.sh runtime/cli.ts -o .build/struct-legibility",
-    "benchmark": "./scripts/benchmark.sh",
-    "test": "./scripts/check.sh",
-    "typecheck": "tsc -p tsconfig.json"
-  },
-  "dependencies": {
-    "@yowainwright/tqs": "github:yowainwright/tqs#a587f389ca08f9f739c7e0bc1f17bd02ad730dec"
+  "engines": {
+    "node": ">=22.6"
   },
   "devDependencies": {
+    "@types/node": "24.10.0",
+    "codependence": "1.0.8",
+    "pastoralist": "1.13.0",
+    "scriptc": "0.0.22",
     "typescript": "6.0.3"
+  },
+  "private": true,
+  "scripts": {
+    "build": "./scripts/build.sh runtime/cli.ts -o .build/struct-lint",
+    "benchmark": "./scripts/benchmark.sh",
+    "deps:check": "codependence",
+    "deps:update": "codependence --update",
+    "overrides:check": "pastoralist --dry-run",
+    "overrides:update": "pastoralist",
+    "setup": "./scripts/setup.sh",
+    "test": "./scripts/check.sh",
+    "test:unit": "node --experimental-strip-types --test tests/unit/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "type": "module",
+  "packageManager": "pnpm@10.34.5+sha512.a4ee05f2f73658255bd6a89859c065a45c28a57daefae2c893a168ee2b73168c37b91e83e57ea67654ad03f03031746430e8bce38e362e042605fb8abc80192e",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^10.34.5",
+      "onFail": "warn"
+    }
   }
 }

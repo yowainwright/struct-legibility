@@ -1,4 +1,3 @@
-// @tqs-script
 import * as os from "qjs:os";
 import { defineConfig, start, type Rule, type SeverityProfile } from "../../../runtime/index";
 

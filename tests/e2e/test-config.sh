@@ -2,11 +2,11 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-output="${1:-${TMPDIR:-/tmp}/struct-legibility-custom}"
+output="${1:-${TMPDIR:-/tmp}/struct-lint-custom}"
 entry="$repo_root/tests/fixtures/config/custom.ts"
 fixture="$repo_root/tests/fixtures/typescript/section-order.ts"
 
-SL_BUILD_DIR="${SL_BUILD_DIR:-${TMPDIR:-/tmp}/struct-legibility-build}" \
+SL_BUILD_DIR="${SL_BUILD_DIR:-${TMPDIR:-/tmp}/struct-lint-build}" \
   "$repo_root/scripts/build.sh" "$entry" -o "$output"
 
 set +e
@@ -28,6 +28,29 @@ set -e
 expected="$fixture:2:1: warning[section-order] imports must appear before public types"
 if [ "$status" -ne 0 ] || [ "$diagnostic" != "$expected" ]; then
   printf 'ordered override failed\nstatus: %s\noutput: %s\n' "$status" "$diagnostic" >&2
+  exit 1
+fi
+
+set +e
+diagnostic="$($output --profile ci "$fixture" 2>&1)"
+status=$?
+set -e
+expected="$fixture:2:1: error[section-order] imports must appear before public types"
+if [ "$status" -ne 1 ] || [ "$diagnostic" != "$expected" ]; then
+  printf 'sparse override profile failed\nstatus: %s\noutput: %s\n' \
+    "$status" "$diagnostic" >&2
+  exit 1
+fi
+
+fixture="$repo_root/tests/fixtures/typescript/function-order.ts"
+set +e
+diagnostic="$($output "$fixture" 2>&1)"
+status=$?
+set -e
+expected="$fixture:1:1: warning[function-order] helper must appear below caller main"
+if [ "$status" -ne 0 ] || [ "$diagnostic" != "$expected" ]; then
+  printf 'sparse rule severity failed\nstatus: %s\noutput: %s\n' \
+    "$status" "$diagnostic" >&2
   exit 1
 fi
 
@@ -74,6 +97,13 @@ set -e
 expected="$main:1:1: error[call-edge] crossFileMain calls helper in $helper"
 if [ "$status" -ne 1 ] || [ "$diagnostic" != "$expected" ]; then
   printf 'import-aware call graph failed\nstatus: %s\noutput: %s\n' "$status" "$diagnostic" >&2
+  exit 1
+fi
+
+status=0
+diagnostic="$("$output" "$fixture" "$fixture" "$helper" 2>&1)" || status=$?
+if [ "$status" -ne 1 ] || [ "$diagnostic" != "$expected" ]; then
+  printf 'overlapping paths changed the call graph\n%s\n' "$diagnostic" >&2
   exit 1
 fi
 

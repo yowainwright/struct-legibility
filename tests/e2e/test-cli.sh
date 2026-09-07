@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-binary_input="${1:-$repo_root/build/struct-legibility}"
+binary_input="${1:-$repo_root/build/struct-lint}"
 binary="$(cd "$(dirname "$binary_input")" && pwd)/$(basename "$binary_input")"
 
 assert_result() {
@@ -63,7 +63,7 @@ assert_result ci 1 "$expected" "$fixture"
 fixture="$repo_root/tests/fixtures/typescript/section-order.ts"
 expected="$fixture:2:1: error[section-order] imports must appear before public types"
 set +e
-output="$(STRUCT_LEGIBILITY_PROFILE=ci "$binary" "$fixture" 2>&1)"
+output="$(STRUCT_LINT_PROFILE=ci "$binary" "$fixture" 2>&1)"
 status=$?
 set -e
 if [ "$status" -ne 1 ] || [ "$output" != "$expected" ]; then

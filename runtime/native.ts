@@ -1,3 +1,7 @@
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 export interface NativeDiagnostic {
   readonly path: string;
   readonly line: number;
@@ -52,13 +56,59 @@ export interface Project {
 }
 
 declare global {
-  const scriptArgs: readonly string[];
-  function __slAnalyze(
-    paths: readonly string[],
+  function slScriptcInfo(option: string): number;
+
+  function slScriptcAnalyze(
+    paths: string,
     useGitignore: boolean,
     collectFacts: boolean,
-  ): NativeReport;
-  function __slWrite(text: string, useStderr: boolean): void;
-  function __slSetExitCode(code: number): void;
-  function __slDefaultProfile(): string;
+    outputPath: string,
+  ): number;
+
+  function slScriptcWrite(text: string, useStderr: boolean): number;
 }
+
+export const printInfo = (option: string): number => slScriptcInfo(option);
+
+const reportFromFile = (path: string): NativeReport => {
+  const report = readFileSync(path, "utf8");
+  return JSON.parse(report) as NativeReport;
+};
+
+const analyzeToFile = (
+  paths: readonly string[],
+  useGitignore: boolean,
+  collectFacts: boolean,
+  outputPath: string,
+): void => {
+  const encodedPaths = paths.join("\0");
+  const status = slScriptcAnalyze(encodedPaths, useGitignore, collectFacts, outputPath);
+  const failed = status !== 0;
+  if (failed) throw new Error(`analysis failed (${status})`);
+};
+
+export const analyze = (
+  paths: readonly string[],
+  useGitignore: boolean,
+  collectFacts: boolean,
+): NativeReport => {
+  const temporaryDirectory = mkdtempSync(join(tmpdir(), "struct-lint-"));
+  const reportPath = join(temporaryDirectory, "report.json");
+  try {
+    analyzeToFile(paths, useGitignore, collectFacts, reportPath);
+    return reportFromFile(reportPath);
+  } finally {
+    rmSync(temporaryDirectory, { recursive: true, force: true });
+  }
+};
+
+export const defaultProfile = (): string => {
+  const configuredProfile = process.env.STRUCT_LINT_PROFILE;
+  return configuredProfile || "local";
+};
+
+export const write = (text: string, useStderr: boolean): void => {
+  const status = slScriptcWrite(text, useStderr);
+  const failed = status !== 0;
+  if (failed) throw new Error(`write failed (${status})`);
+};

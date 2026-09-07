@@ -1,0 +1,5 @@
+[tools]
+cmake = "4.4.2"
+node = "26"
+nub = "0.7.5"
+shellcheck = "0.11.0"

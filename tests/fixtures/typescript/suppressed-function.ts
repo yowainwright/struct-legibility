@@ -1,4 +1,4 @@
-// struct-legibility-disable-next function-order -- generated compatibility shim
+// struct-lint-disable-next function-order -- generated compatibility shim
 function helper(): number {
   return 42;
 }

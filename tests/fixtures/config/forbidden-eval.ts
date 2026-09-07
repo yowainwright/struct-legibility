@@ -1,4 +1,3 @@
-// @tqs-script
 import { defineConfig, start, type Rule, type SeverityProfile } from "../../../runtime/index";
 
 const local: SeverityProfile = { default: "warning" };

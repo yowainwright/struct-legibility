@@ -23,4 +23,3 @@ check_script() {
 }
 
 check_script "$repo_root/scripts/build.sh"
-check_script "$repo_root/scripts/tqs-qjsc.sh"

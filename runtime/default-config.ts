@@ -1,7 +1,7 @@
-import { defineConfig, type SeverityProfile } from "./config";
+import { defineConfig, type Config, type SeverityProfile } from "./config";
 
 const local: SeverityProfile = { default: "warning" };
 const ci: SeverityProfile = { default: "error" };
-const profiles = { local, ci };
+const profiles: Config["profiles"] = { local, ci };
 
-export const defaultConfig = defineConfig({ profiles });
+export const defaultConfig: Config = defineConfig({ profiles });
