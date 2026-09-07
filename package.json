@@ -8,7 +8,7 @@
     "@types/node": "24.10.0",
     "codependence": "1.0.8",
     "pastoralist": "1.13.0",
-    "scriptc": "0.0.22",
+    "scriptc": "0.0.36",
     "typescript": "6.0.3"
   },
   "private": true,
