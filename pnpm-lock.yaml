@@ -12,8 +12,8 @@ importers:
         specifier: 24.10.0
         version: 24.10.0
       codependence:
-        specifier: 1.0.8
-        version: 1.0.8
+        specifier: 1.0.15
+        version: 1.0.15
       pastoralist:
         specifier: 1.13.0
         version: 1.13.0
@@ -155,8 +155,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  codependence@1.0.8:
-    resolution: {integrity: sha512-84txLfRSlyObi7MZDoJaUxjbHLdd19FblKxVtsinzOPpDLKUEvkZfiINCskE0iF2uOmsgAwKV6VLl00//XaU2w==}
+  codependence@1.0.15:
+    resolution: {integrity: sha512-VkFWAuNPResEc6vR4eMokCvCKhLF5ATVDG5SgiYQtCsDoEgHbzoCg+HplGEQzc/PvIOkqEQ1W5PAFjMkcUDsVw==}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -262,7 +262,7 @@ snapshots:
   '@typescript/typescript-win32-x64@7.0.2':
     optional: true
 
-  codependence@1.0.8: {}
+  codependence@1.0.15: {}
 
   pastoralist@1.13.0: {}
 
