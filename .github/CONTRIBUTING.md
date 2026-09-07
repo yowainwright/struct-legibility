@@ -1,28 +1,33 @@
 # Contributing
 
-## Setup
-
-<!-- setup commands from mise.toml, package.json, and scripts/setup.sh -->
-
-Requirements are mise, CMake 3.24 or newer, Clang, Git, and ShellCheck.
+Requires a C11 compiler, CMake 3.24 or newer, Git, and ShellCheck.
+`mise install` can provision CMake and ShellCheck using `mise.toml`.
 
 ```sh
-mise install
-nub ci
-nub run setup
-nub run test
+./scripts/check.sh
+shellcheck scripts/*.sh scripts/hooks/* tests/e2e/*.sh
 ```
+
+The check script builds into `.build`. Set `SL_BUILD_DIR` to use another
+directory. `./scripts/build.sh` builds just the CLI; `./scripts/benchmark.sh`
+measures the resulting executable.
 
 ## Changes
 
-1. Branch from `main`.
-2. Keep each change focused.
-3. Add TypeScript unit, C, or end-to-end coverage for behavior changes.
-4. Run `nub run test` and `shellcheck scripts/*.sh tests/e2e/*.sh`.
-5. Open a pull request with the problem, approach, and validation.
+Keep changes focused and C functions small. Add C or end-to-end coverage for
+behavior changes. Describe the problem, resulting behavior, and validation in
+the pull request.
 
-Keep C and TypeScript functions small and single-purpose. Prefer early returns,
-immutable values, and direct control flow.
+To install the optional pre-commit checks and commit-message hook, run
+`./scripts/setup.sh`. Existing unmanaged hooks are preserved.
 
-Language packs belong in `src/languages/`. Register each pack in
-`src/language.c`, link its Tree-sitter grammar, and add API and CLI fixtures.
+The release version is defined in `CMakeLists.txt`.
+
+## Adding a language
+
+Language packs belong in `src/languages/` and implement `SlLanguagePack` from
+`src/language.h`. Each pack identifies declarations, imports, exports, calls,
+and entry points using a Tree-sitter grammar.
+
+Register the pack in `src/language.c`, link its grammar in `CMakeLists.txt`,
+and add C and CLI fixtures. The analyzer and CLI are shared across languages.

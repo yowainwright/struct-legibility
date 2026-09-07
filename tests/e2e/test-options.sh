@@ -4,7 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 binary="$1"
 fixture="$repo_root/tests/fixtures/typescript/section-order.ts"
-version="$(node -p "require('$repo_root/package.json').version")"
+version="$(awk '$1 == "project(struct_lint" { print $3 }' "$repo_root/CMakeLists.txt")"
 
 test "$(STRUCT_LINT_PROFILE=missing "$binary" --version)" = "struct-lint $version"
 help="$(STRUCT_LINT_PROFILE=missing "$binary" --help)"
@@ -20,4 +20,8 @@ test "$output" = "$fixture:2:1: error[section-order] imports must appear before 
 
 status=0
 STRUCT_LINT_PROFILE=missing "$binary" "$fixture" >/dev/null 2>&1 || status=$?
+test "$status" -eq 2
+
+status=0
+"$binary" --profile missing "$fixture" >/dev/null 2>&1 || status=$?
 test "$status" -eq 2

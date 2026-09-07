@@ -33,6 +33,14 @@ install_hook() {
   printf 'Installed git hook: %s\n' "$name"
 }
 
+remove_obsolete_hook() {
+  local hook="$hooks_dir/post-merge"
+  if [ ! -f "$hook" ]; then return; fi
+  if ! grep -Eq '^# struct-(lint|legibility)-managed-hook$' "$hook"; then return; fi
+  rm "$hook"
+  printf 'Removed obsolete git hook: post-merge\n'
+}
+
 custom_hooks_path="$(git -C "$repo_root" config --get core.hooksPath || true)"
 if [ -n "$custom_hooks_path" ]; then
   printf 'core.hooksPath is already set to %s\n' "$custom_hooks_path" >&2
@@ -44,4 +52,4 @@ mkdir -p "$hooks_dir"
 
 install_hook pre-commit
 install_hook commit-msg
-install_hook post-merge
+remove_obsolete_hook

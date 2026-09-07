@@ -1,12 +1,8 @@
-# Dependencies
-node_modules/
-
 # Build output
 .build/
 build/
 cmake-build-*/
 dist/
-.pnpm-store/
 *.d
 
 # Object files
@@ -69,10 +65,7 @@ dkms.conf
 AGENTS.md
 CLAUDE.md
 
-# Beads / Dolt state
-.beads/
 .dolt/
-.beads-credential-key
 
 # OS metadata
 .DS_Store

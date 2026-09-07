@@ -16,7 +16,7 @@ body:
     attributes:
       label: Reproduction
       description: >-
-        Include the smallest source file, config, and command that reproduce
+        Include the smallest source file and command that reproduce
         the problem.
       render: shell
     validations:

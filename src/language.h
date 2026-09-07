@@ -38,7 +38,7 @@ typedef struct {
   size_t extension_count;
   const TSLanguage *(*tree_sitter_language)(void);
   TSNode (*declaration_node)(TSNode input);
-  SlDeclarationKind (*declaration_kind)(TSNode input);
+  SlDeclarationKind (*declaration_kind)(TSNode input, const char *source);
   TSNode (*name_node)(TSNode declaration);
   TSNode (*function_node)(TSNode declaration);
   int (*is_function_node)(TSNode node);
@@ -53,12 +53,15 @@ typedef struct {
   TSNode (*exported_reference_name_node)(TSNode node);
   TSNode (*exported_name_node)(TSNode node);
   const char *(*implicit_export_name)(TSNode input);
-  int (*is_exported)(TSNode input);
+  int (*is_exported)(TSNode input, const char *source);
   int (*is_entrypoint_name)(const char *name);
   int (*resolve_call)(const SlCallResolutionRequest *request, SlResolvedFunction *result);
 } SlLanguagePack;
 
 extern const SlLanguagePack sl_typescript_pack;
+extern const SlLanguagePack sl_go_pack;
+extern const SlLanguagePack sl_python_pack;
+extern const SlLanguagePack sl_bash_pack;
 
 const SlLanguagePack *sl_language_for_path(const char *path);
 int sl_language_resolve_call(const SlLanguagePack *pack, const SlCallResolutionRequest *request,

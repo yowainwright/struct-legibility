@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 binary="$1"
+mkdir -p "$repo_root/.build"
 temporary_dir="$(mktemp -d "$repo_root/.build/discovery.XXXXXX")"
 trap 'rm -rf "$temporary_dir"' EXIT
 
@@ -17,19 +18,23 @@ for path in root.ts src/main.ts src/kept.ts src/root-ignored.ts src/generated.ts
   cp "$repo_root/tests/fixtures/typescript/section-order.ts" "$temporary_dir/$path"
 done
 
+relative_paths() {
+  local diagnostic path directory absolute
+  while IFS= read -r diagnostic; do
+    path="${diagnostic%:2:1: error*}"
+    directory="$(cd "$(dirname "$path")" && pwd -P)"
+    absolute="$directory/$(basename "$path")"
+    printf '%s\n' "${absolute#"$temporary_dir"/}"
+  done | LC_ALL=C sort
+}
+
 assert_paths() {
   local expected="$1"
   shift
   local output status=0 actual
-  output="$("$binary" --profile ci --format json "$@")" || status=$?
+  output="$("$binary" --profile ci "$@" 2>&1)" || status=$?
   test "$status" -eq 1
-  actual="$(node -e '
-    const fs = require("node:fs");
-    const path = require("node:path");
-    const report = JSON.parse(fs.readFileSync(0, "utf8"));
-    const paths = report.diagnostics.map((item) => path.relative(process.argv[1], item.path));
-    process.stdout.write(paths.sort().join("\n"));
-  ' "$temporary_dir" <<<"$output")"
+  actual="$(relative_paths <<<"$output")"
   if [ "$actual" = "$expected" ]; then return; fi
   printf 'unexpected discovered files\nexpected: %s\nactual: %s\n' "$expected" "$actual" >&2
   exit 1
@@ -45,7 +50,6 @@ assert_paths $'root.ts\nsrc/kept.ts\nsrc/main.ts' "$temporary_dir"
 (cd "$temporary_dir/src" && assert_paths "$expected" .)
 
 status=0
-output="$("$binary" --profile ci --format json --no-ignore "$temporary_dir")" || status=$?
+output="$("$binary" --profile ci --no-ignore "$temporary_dir" 2>&1)" || status=$?
 test "$status" -eq 1
-node -e 'const r = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
-  require("node:assert/strict").equal(r.diagnostics.length, 12);' <<<"$output"
+test "$(wc -l <<<"$output" | tr -d ' ')" -eq 12

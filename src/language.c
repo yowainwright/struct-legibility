@@ -17,7 +17,7 @@ static int pack_accepts_path(const SlLanguagePack *pack, const char *path) {
 }
 
 const SlLanguagePack *sl_language_for_path(const char *path) {
-  const SlLanguagePack *packs[] = {&sl_typescript_pack};
+  const SlLanguagePack *packs[] = {&sl_typescript_pack, &sl_go_pack, &sl_python_pack, &sl_bash_pack};
   const size_t count = sizeof(packs) / sizeof(*packs);
   for (size_t index = 0; index < count; index++) {
     if (pack_accepts_path(packs[index], path)) return packs[index];

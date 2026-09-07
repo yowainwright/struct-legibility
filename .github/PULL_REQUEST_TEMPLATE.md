@@ -11,7 +11,7 @@ Describe the problem and the resulting behavior.
 
 ## Validation
 
-- [ ] `nub run test`
-- [ ] `shellcheck scripts/*.sh tests/e2e/*.sh`
+- [ ] `./scripts/check.sh`
+- [ ] `shellcheck scripts/*.sh scripts/hooks/* tests/e2e/*.sh`
 - [ ] Tests cover changed behavior
-- [ ] Public API and configuration changes are documented
+- [ ] Public API and CLI changes are documented

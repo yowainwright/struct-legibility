@@ -13,7 +13,9 @@ for notice in "$repo_root"/LICENSES/*; do
 done
 
 binary="$temporary_dir/struct-lint"
-PATH=/nonexistent "$binary" --profile ci "$repo_root/tests/fixtures/readme/main.ts"
+for fixture in readme/main.ts go/clean.go python/clean.py bash/clean.sh; do
+  PATH=/nonexistent "$binary" --profile ci "$repo_root/tests/fixtures/$fixture"
+done
 "$repo_root/tests/e2e/test-options.sh" "$binary"
-"$repo_root/tests/e2e/test-scriptc.sh" "$binary"
+"$repo_root/tests/e2e/test-cli.sh" "$binary"
 "$repo_root/tests/e2e/test-discovery.sh" "$binary"

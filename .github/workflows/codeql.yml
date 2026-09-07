@@ -19,18 +19,9 @@ concurrency:
 
 jobs:
   analyze:
-    name: ${{ matrix.language }}
+    name: C
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - language: c-cpp
-            build-mode: manual
-          - language: javascript-typescript
-            build-mode: none
-
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -38,11 +29,10 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@c54b30b7df092240050e69945842bc67aee0f0f4
         with:
-          languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
+          languages: c-cpp
+          build-mode: manual
 
       - name: Build C analyzer
-        if: matrix.language == 'c-cpp'
         run: |
           cmake -S . -B .build/codeql -DCMAKE_BUILD_TYPE=Debug
           cmake --build .build/codeql --parallel
