@@ -15,8 +15,8 @@ importers:
         specifier: 1.0.8
         version: 1.0.8
       pastoralist:
-        specifier: 1.13.0
-        version: 1.13.0
+        specifier: 1.13.1
+        version: 1.13.1
       scriptc:
         specifier: 0.0.22
         version: 0.0.22
@@ -160,9 +160,9 @@ packages:
     engines: {node: '>=20'}
     hasBin: true
 
-  pastoralist@1.13.0:
-    resolution: {integrity: sha512-ug6sNNqIBBHeRhpDgbYSuWbMrxH1gu+alEj/fkeilEdu893hb/Af+A3XlwgAAOlKxvMLiUyWz7RW1s2yELNFmw==}
-    engines: {node: '>=20'}
+  pastoralist@1.13.1:
+    resolution: {integrity: sha512-8OTBy/Fp98u2/YXG5z5lr3bHcFZSW6zu7D3jgpTBw6AxftKPz+keFLXDadlGN7Q4E6WCWM/tAU+RrZvV87u5lQ==}
+    engines: {node: '>=20.19.0'}
     hasBin: true
 
   scriptc@0.0.22:
@@ -264,7 +264,7 @@ snapshots:
 
   codependence@1.0.8: {}
 
-  pastoralist@1.13.0: {}
+  pastoralist@1.13.1: {}
 
   scriptc@0.0.22:
     dependencies:
