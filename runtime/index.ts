@@ -1,6 +1,6 @@
 import { hasProfile, severityFor, type Config, type RuleDiagnostic, type Severity } from "./config";
 import type { Declaration, NativeDiagnostic, NativeReport, Project } from "./native";
-import { analyze, defaultProfile, write } from "./native";
+import { analyze, defaultProfile, printInfo, write } from "./native";
 import { freezeProject } from "./project";
 
 export {
@@ -38,9 +38,8 @@ const withDefaultPath = (options: CliOptions): CliOptions => {
   return { ...options, paths: ["."] };
 };
 
-const defaultOptions = (config: Config): CliOptions | null => {
+const defaultOptions = (): CliOptions => {
   const profile = defaultProfile();
-  if (!hasProfile(config, profile)) return null;
   return { profile, format: "human", useGitignore: true, paths: [] };
 };
 
@@ -154,22 +153,23 @@ const emitReport = (report: NativeReport, options: CliOptions, config: Config): 
 };
 
 const usageError = (): number => {
-  write("usage: struct-legibility [options] [path...]\n", true);
+  write("usage: struct-lint [options] [path...]\n", true);
   return 2;
 };
 
 const run = (config: Config): number => {
-  const defaults = defaultOptions(config);
-  if (defaults === null) return usageError();
-  const options = parseOptions(process.argv.slice(2), defaults, config);
-  if (options === null) return usageError();
+  const args = process.argv.slice(2);
+  const info = printInfo(args[0] ?? "");
+  if (info >= 0) return info;
+  const options = parseOptions(args, defaultOptions(), config);
+  if (options === null || !hasProfile(config, options.profile)) return usageError();
   try {
     const collectFacts = (config.rules?.length ?? 0) > 0;
     const report = analyze(options.paths, options.useGitignore, collectFacts);
     return emitReport(report, options, config);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    write(`struct-legibility: ${message}\n`, true);
+    write(`struct-lint: ${message}\n`, true);
     return 2;
   }
 };

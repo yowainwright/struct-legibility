@@ -1,4 +1,4 @@
-#include "struct_legibility.h"
+#include "struct_lint.h"
 
 static int expect_invalid(const char *const *paths, size_t count, int use_gitignore,
                           int collect_facts) {

@@ -1,4 +1,4 @@
-# struct-legibility
+# struct-lint
 
 A small structural linter for source files. It checks whether code reads top-down: imports and public types first, entry points and exported functions next, then private helpers.
 
@@ -18,6 +18,34 @@ TypeScript (`.ts`) is the first language pack. Go, Python, and Bash are not impl
 
 Diagnostics are deterministic. Directory scans use available CPU cores and honor nested `.gitignore` files by default.
 
+## Install
+
+Download the archive for your system from [GitHub Releases](https://github.com/yowainwright/struct-lint/releases).
+
+| System | Archive |
+| --- | --- |
+| Linux x64 | `struct-lint-linux-x64.tar.gz` |
+| macOS Apple Silicon | `struct-lint-macos-arm64.tar.gz` |
+| macOS Intel | `struct-lint-macos-x64.tar.gz` |
+
+For example, on macOS Apple Silicon:
+
+```sh
+mkdir struct-lint
+cd struct-lint
+archive=struct-lint-macos-arm64.tar.gz
+base=https://github.com/yowainwright/struct-lint/releases/latest/download
+curl -fLO "$base/$archive"
+curl -fLO "$base/SHA256SUMS"
+grep -F " ./$archive" SHA256SUMS | shasum -a 256 -c -
+tar -xzf "$archive"
+./struct-lint --version
+./struct-lint --help
+```
+
+On Linux, select the Linux archive and use `sha256sum --ignore-missing -c SHA256SUMS` to verify it.
+Keep `LICENSE` and `LICENSES/` with redistributed binaries. Running a downloaded binary requires no build tools. Custom configurations require the source build below.
+
 ## Build
 
 <!-- prerequisites and build commands from mise.toml, package.json, scripts/setup.sh, scripts/build.sh, and CMakeLists.txt -->
@@ -33,13 +61,13 @@ nub run build
 
 `nub run setup` installs managed hooks in `.git/hooks` and preserves existing unmanaged hooks.
 
-The standalone binary is written to `.build/struct-legibility`.
+The standalone binary is written to `.build/struct-lint`.
 
 For the native C CLI without the embedded TypeScript configuration runtime:
 
 ```sh
 cmake -S . -B .build/native -DCMAKE_BUILD_TYPE=Release
-cmake --build .build/native --target struct-legibility --parallel
+cmake --build .build/native --target struct-lint --parallel
 ```
 
 ## Dependency maintenance
@@ -60,25 +88,28 @@ Codependence manages pnpm dependencies, Docker image tags, and GitHub Actions re
 <!-- arguments, environment profile, defaults, and exits from runtime/index.ts and src/scriptc_bridge.c -->
 
 ```text
-struct-legibility [options] [path...]
+struct-lint [options] [path...]
 
 options:
   --profile <name>       Select a compiled profile
   --format human|json    Select diagnostic output
   --no-ignore            Include paths excluded by .gitignore
+  --help                 Show help
+  --version              Show version
 ```
 
 With no paths, the CLI scans the current directory.
+Directory scans inherit `.gitignore` rules up to the repository root and support recursive `**` patterns. Explicit files are always analyzed. Overlapping paths are analyzed once.
 
 ```sh
-.build/struct-legibility src
-STRUCT_LEGIBILITY_PROFILE=ci .build/struct-legibility src
-.build/struct-legibility --profile ci --format json src test.ts
+.build/struct-lint src
+STRUCT_LINT_PROFILE=ci .build/struct-lint src
+.build/struct-lint --profile ci --format json src test.ts
 ```
 
 The default binary has `local` and `ci` profiles. `local` emits warnings and exits `0`; `ci` emits errors and exits `1` when findings exist. Parse errors always exit `1`. Invalid usage and analysis failures exit `2`.
 
-`STRUCT_LEGIBILITY_PROFILE` selects the environment default. `--profile` takes precedence. Human diagnostics go to stderr; JSON goes to stdout.
+`STRUCT_LINT_PROFILE` selects the environment default. `--profile` takes precedence. Human diagnostics go to stderr; JSON goes to stdout.
 
 ## Configuration
 
@@ -89,7 +120,7 @@ A config is a TypeScript entry point compiled into its own binary by scriptc. It
 See the custom-rule example below for a complete compiled configuration.
 
 ```sh
-./scripts/build.sh struct-legibility.config.ts -o .build/struct-legibility
+./scripts/build.sh struct-lint.config.ts -o .build/struct-lint
 ```
 
 Later matching overrides win. Custom rules have the type `(project: Project) => readonly RuleDiagnostic[]`. They receive immutable files, declarations, imports, local calls, and resolved cross-file call edges.
@@ -120,14 +151,14 @@ function formatGreeting(user: User): string {
 
 ```sh
 nub run build
-.build/struct-legibility --profile ci main.ts
+.build/struct-lint --profile ci main.ts
 ```
 
 The command exits `0` without output.
 
 ### Custom rule
 
-Save this config as `struct-legibility.config.ts`:
+Save this config as `struct-lint.config.ts`:
 
 ```ts
 import {
@@ -187,9 +218,9 @@ export function launch(): void {}
 Compile the config and run its binary:
 
 ```sh
-./scripts/build.sh struct-legibility.config.ts \
-  -o .build/struct-legibility-custom
-.build/struct-legibility-custom --profile ci launch.ts
+./scripts/build.sh struct-lint.config.ts \
+  -o .build/struct-lint-custom
+.build/struct-lint-custom --profile ci launch.ts
 ```
 
 ```text
@@ -200,20 +231,20 @@ launch.ts:1:1: error[entrypoint-name] exported function launch must be named mai
 
 <!-- suppression syntax and scope from declaration_suppression in src/analyzer.c -->
 
-Place `// struct-legibility-disable-next <rule-id> -- <reason>` immediately above a top-level declaration. Built-in suppression IDs are `function-order` and `section-order`; custom rules match their own `ruleId`.
+Place `// struct-lint-disable-next <rule-id> -- <reason>` immediately above a top-level declaration. Built-in suppression IDs are `function-order` and `section-order`; custom rules match their own `ruleId`.
 
 ## C library
 
-<!-- public analyzer API from include/struct_legibility.h -->
+<!-- public analyzer API from include/struct_lint.h -->
 
-The static `struct_legibility` target exposes:
+The static `struct_lint` target exposes:
 
 ```c
 SlStatus sl_analyze(const SlRequest *request, SlReport *report);
 void sl_report_free(SlReport *report);
 ```
 
-Set `SlRequest.collect_facts` to include declarations, imports, exports, and call edges in `SlReport`. The full ABI is in `include/struct_legibility.h`.
+Set `SlRequest.collect_facts` to include declarations, imports, exports, and call edges in `SlReport`. The full ABI is in `include/struct_lint.h`.
 
 ## Adding a language
 
@@ -233,10 +264,11 @@ nub run test
 nub run benchmark
 ```
 
-The full test command runs TypeScript unit tests, builds both CLIs, runs C and
-end-to-end tests including the README snippets, verifies static scriptc builds, and
-checks a large corpus against limits of 2 seconds, 64 MiB peak RSS, and a 5 MiB
-binary.
+The test command runs TypeScript unit tests, builds both CLIs, runs C and
+end-to-end tests including the README snippets, and verifies static scriptc builds.
+CI also extracts and tests release archives on all three release platforms.
+The separate benchmark checks a large corpus against limits of 2 seconds,
+64 MiB peak RSS, and a 5 MiB binary. CI enforces these limits on Linux x64 / Node 26.
 
 ## License
 

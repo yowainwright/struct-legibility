@@ -11,7 +11,7 @@
 ## Reporting
 
 Report vulnerabilities through
-[GitHub private vulnerability reporting](https://github.com/yowainwright/struct-legibility/security/advisories/new).
+[GitHub private vulnerability reporting](https://github.com/yowainwright/struct-lint/security/advisories/new).
 Do not open a public issue.
 
 Include affected versions, platform details, impact, reproduction steps, and

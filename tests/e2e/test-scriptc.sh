@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-binary_input="${1:-$repo_root/.build/struct-legibility}"
+binary_input="${1:-$repo_root/.build/struct-lint}"
 binary="$(cd "$(dirname "$binary_input")" && pwd)/$(basename "$binary_input")"
 fixture="$repo_root/tests/fixtures/typescript/section-order.ts"
 
@@ -29,11 +29,11 @@ assert_result 0 "$expected" --profile local "$fixture"
 expected="{\"diagnostics\":[{\"ruleId\":\"section-order\",\"severity\":\"error\",\"path\":\"$fixture\",\"line\":2,\"column\":1,\"message\":\"imports must appear before public types\",\"related\":null}],\"summary\":{\"errors\":1,\"warnings\":0}}"
 assert_result 1 "$expected" --profile ci --format json "$fixture"
 
-expected="usage: struct-legibility [options] [path...]"
+expected="usage: struct-lint [options] [path...]"
 assert_result 2 "$expected" --profile missing "$fixture"
 
 set +e
-output="$(STRUCT_LEGIBILITY_PROFILE=missing "$binary" "$fixture" 2>&1)"
+output="$(STRUCT_LINT_PROFILE=missing "$binary" "$fixture" 2>&1)"
 status=$?
 set -e
 if [ "$status" -ne 2 ] || [ "$output" != "$expected" ]; then

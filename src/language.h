@@ -1,7 +1,7 @@
-#ifndef STRUCT_LEGIBILITY_LANGUAGE_H
-#define STRUCT_LEGIBILITY_LANGUAGE_H
+#ifndef STRUCT_LINT_LANGUAGE_H
+#define STRUCT_LINT_LANGUAGE_H
 
-#include "struct_legibility.h"
+#include "struct_lint.h"
 
 #include <stddef.h>
 #include <tree_sitter/api.h>

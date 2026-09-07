@@ -1,6 +1,6 @@
 #include "files.h"
 #include "language.h"
-#include "struct_legibility.h"
+#include "struct_lint.h"
 
 #include <pthread.h>
 #include <stdint.h>
@@ -349,7 +349,7 @@ static int previous_content_line(const Source *source, size_t declaration_start,
 
 static int suppression_prefix_matches(const Source *source, TextRange line,
                                       const SlLanguagePack *pack, size_t *rule_start) {
-  const char *suffix = " struct-legibility-disable-next ";
+  const char *suffix = " struct-lint-disable-next ";
   const size_t comment_length = strlen(pack->line_comment_prefix);
   const size_t suffix_length = strlen(suffix);
   const size_t prefix_length = comment_length + suffix_length;
@@ -1170,7 +1170,7 @@ static void *run_analysis_worker(void *value) {
   worker->status = create_parser(&parser);
   for (size_t index = worker->index; index < worker->files->count && worker->status == SL_OK;
        index += worker->count) {
-    worker->status = analyze_file(worker->files->paths[index], parser,
+    worker->status = analyze_file(worker->files->items[index].path, parser,
                                   worker->request->collect_facts, &worker->reports[index]);
   }
   ts_parser_delete(parser);
@@ -1197,12 +1197,12 @@ static void analysis_pool_free(AnalysisPool *pool) {
 static SlStatus analysis_pool_init(const SlRequest *request, const SlFileList *files,
                                    AnalysisPool *pool) {
   pool->worker_count = analysis_worker_count(files->count);
-  pool->file_count = files->count;
   pool->reports = calloc(files->count, sizeof(*pool->reports));
   pool->workers = calloc(pool->worker_count, sizeof(*pool->workers));
   pool->threads = calloc(pool->worker_count, sizeof(*pool->threads));
   if (pool->reports == NULL || pool->workers == NULL || pool->threads == NULL)
     return analysis_pool_free(pool), SL_OUT_OF_MEMORY;
+  pool->file_count = files->count;
   for (size_t index = 0; index < pool->worker_count; index++) {
     pool->workers[index] =
         (AnalysisWorker){request, files, pool->reports, index, pool->worker_count, SL_OK};

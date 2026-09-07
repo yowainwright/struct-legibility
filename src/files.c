@@ -25,6 +25,7 @@ typedef struct {
 typedef struct {
   IgnoreList ignores;
   int use_gitignore;
+  int excluded;
 } Discovery;
 
 static char *copy_string(const char *value) {
@@ -57,25 +58,33 @@ static char *join_path(const char *directory, const char *name) {
   return path;
 }
 
-static char *join_relative(const char *directory, const char *name) {
-  if (directory[0] == '\0') return copy_string(name);
-  return join_path(directory, name);
+static void file_free(SlFile *file) {
+  free(file->path);
+  free(file->resolved_path);
 }
 
 static SlStatus append_file(SlFileList *files, const char *path) {
-  char *copy = copy_string(path);
-  if (copy == NULL) return SL_OUT_OF_MEMORY;
-  const size_t size = (files->count + 1) * sizeof(*files->paths);
-  char **paths = realloc(files->paths, size);
-  if (paths == NULL) return free(copy), SL_OUT_OF_MEMORY;
-  files->paths = paths;
-  files->paths[files->count++] = copy;
+  SlFile file = {.resolved_path = realpath(path, NULL)};
+  if (file.resolved_path == NULL) return errno == ENOMEM ? SL_OUT_OF_MEMORY : SL_IO_ERROR;
+  file.path = copy_string(path);
+  if (file.path == NULL) return file_free(&file), SL_OUT_OF_MEMORY;
+  const size_t size = (files->count + 1) * sizeof(*files->items);
+  SlFile *items = realloc(files->items, size);
+  if (items == NULL) return file_free(&file), SL_OUT_OF_MEMORY;
+  files->items = items;
+  files->items[files->count++] = file;
   return SL_OK;
 }
 
 static void trim_line(char *line) {
   size_t length = strlen(line);
   while (length > 0 && (line[length - 1] == '\n' || line[length - 1] == '\r')) {
+    line[--length] = '\0';
+  }
+  while (length > 0 && line[length - 1] == ' ') {
+    size_t start = length - 1;
+    while (start > 0 && line[start - 1] == '\\') start--;
+    if ((length - 1 - start) % 2 != 0) break;
     line[--length] = '\0';
   }
 }
@@ -152,25 +161,41 @@ static void ignore_list_truncate(IgnoreList *ignores, size_t count) {
     ignore_rule_free(&ignores->rules[--ignores->count]);
 }
 
-static const char *scoped_relative(const IgnoreRule *rule, const char *relative) {
-  if (rule->base[0] == '\0') return relative;
+static char *scoped_relative(const IgnoreRule *rule, char *relative) {
+  if (strcmp(rule->base, "/") == 0) return relative + 1;
   const size_t length = strlen(rule->base);
   if (strncmp(relative, rule->base, length) != 0) return NULL;
   if (relative[length] != '/') return NULL;
   return relative + length + 1;
 }
 
-static int rule_matches(const IgnoreRule *rule, const char *relative, const char *name,
-                        int is_directory) {
-  if (rule->directory_only && !is_directory) return 0;
-  const char *scoped = scoped_relative(rule, relative);
-  if (scoped == NULL) return 0;
-  const char *candidate = rule->basename_only ? name : scoped;
-  const int flags = rule->basename_only ? 0 : FNM_PATHNAME;
-  return fnmatch(rule->pattern, candidate, flags) == 0;
+// Keep component matching in fnmatch; only ** spans directories.
+static int match_path(char *pattern, char *path) {
+  char *separator = strchr(pattern, '/');
+  if (separator == NULL) return fnmatch(pattern, path, FNM_PATHNAME) == 0;
+  char *next = strchr(path, '/');
+  const int recursive = separator == pattern + 2 && strncmp(pattern, "**", 2) == 0;
+  if (recursive) {
+    const int zero_directories = match_path(separator + 1, path);
+    return zero_directories || (next != NULL && match_path(pattern, next + 1));
+  }
+  if (next == NULL) return 0;
+  *separator = *next = '\0';
+  const int matched = fnmatch(pattern, path, 0) == 0;
+  *separator = *next = '/';
+  return matched && match_path(separator + 1, next + 1);
 }
 
-static int path_is_ignored(const Discovery *discovery, const char *relative, const char *name,
+static int rule_matches(const IgnoreRule *rule, char *relative, const char *name,
+                        int is_directory) {
+  if (rule->directory_only && !is_directory) return 0;
+  char *scoped = scoped_relative(rule, relative);
+  if (scoped == NULL) return 0;
+  if (rule->basename_only) return fnmatch(rule->pattern, name, 0) == 0;
+  return match_path(rule->pattern, scoped);
+}
+
+static int path_is_ignored(const Discovery *discovery, char *relative, const char *name,
                            int is_directory) {
   int ignored = 0;
   for (size_t index = 0; index < discovery->ignores.count; index++) {
@@ -180,10 +205,10 @@ static int path_is_ignored(const Discovery *discovery, const char *relative, con
   return ignored;
 }
 
-static SlStatus discover_directory(const char *path, const char *relative, Discovery *discovery,
+static SlStatus discover_directory(const char *path, char *relative, Discovery *discovery,
                                    SlFileList *files);
 
-static SlStatus discover_child(const char *path, const char *relative, const char *name,
+static SlStatus discover_child(const char *path, char *relative, const char *name,
                                const struct stat *details, Discovery *discovery,
                                SlFileList *files) {
   const int is_directory = S_ISDIR(details->st_mode);
@@ -200,7 +225,7 @@ static SlStatus discover_entry(const char *directory, const char *relative,
                                SlFileList *files) {
   if (is_ignored_name(entry->d_name, discovery->use_gitignore)) return SL_OK;
   char *path = join_path(directory, entry->d_name);
-  char *child_relative = join_relative(relative, entry->d_name);
+  char *child_relative = join_path(relative, entry->d_name);
   if (path == NULL || child_relative == NULL)
     return free(path), free(child_relative), SL_OUT_OF_MEMORY;
   struct stat details;
@@ -212,34 +237,58 @@ static SlStatus discover_entry(const char *directory, const char *relative,
   return status;
 }
 
-static SlStatus open_discovery_directory(const char *path, const char *relative,
-                                         Discovery *discovery, size_t *inherited_count,
-                                         DIR **directory) {
-  *inherited_count = discovery->ignores.count;
-  const SlStatus status =
-      discovery->use_gitignore ? load_ignores(path, relative, &discovery->ignores) : SL_OK;
-  if (status != SL_OK) return status;
-  *directory = opendir(path);
-  if (*directory != NULL) return SL_OK;
-  ignore_list_truncate(&discovery->ignores, *inherited_count);
-  return SL_IO_ERROR;
+static SlStatus read_directory(DIR *directory, const char *path, const char *relative,
+                                Discovery *discovery, SlFileList *files) {
+  while (1) {
+    errno = 0;
+    const struct dirent *entry = readdir(directory);
+    if (entry == NULL) return errno == 0 ? SL_OK : SL_IO_ERROR;
+    const SlStatus status = discover_entry(path, relative, entry, discovery, files);
+    if (status != SL_OK) return status;
+  }
 }
 
-static SlStatus discover_directory(const char *path, const char *relative, Discovery *discovery,
+static SlStatus discover_directory(const char *path, char *relative, Discovery *discovery,
                                    SlFileList *files) {
-  size_t inherited_count = 0;
-  DIR *directory = NULL;
+  const size_t inherited_count = discovery->ignores.count;
   SlStatus status =
-      open_discovery_directory(path, relative, discovery, &inherited_count, &directory);
+      discovery->use_gitignore ? load_ignores(path, relative, &discovery->ignores) : SL_OK;
   if (status != SL_OK) return status;
-  struct dirent *entry = NULL;
-  errno = 0;
-  while (status == SL_OK && (entry = readdir(directory)) != NULL) {
-    status = discover_entry(path, relative, entry, discovery, files);
-  }
-  if (status == SL_OK && errno != 0) status = SL_IO_ERROR;
+  DIR *directory = opendir(path);
+  if (directory == NULL)
+    return ignore_list_truncate(&discovery->ignores, inherited_count), SL_IO_ERROR;
+  status = read_directory(directory, path, relative, discovery, files);
   closedir(directory);
   ignore_list_truncate(&discovery->ignores, inherited_count);
+  return status;
+}
+
+static char *parent_directory(const char *path) {
+  char *parent = copy_string(path);
+  if (parent == NULL) return NULL;
+  char *separator = strrchr(parent, '/');
+  if (separator == parent) separator++;
+  *separator = '\0';
+  return parent;
+}
+
+static SlStatus load_parent_ignores(char *path, Discovery *discovery) {
+  if (strcmp(path, "/") == 0) return SL_OK;
+  char *marker = join_path(path, ".git");
+  if (marker == NULL) return SL_OUT_OF_MEMORY;
+  struct stat details;
+  const int repository_root = lstat(marker, &details) == 0;
+  free(marker);
+  if (repository_root) return SL_OK;
+  const char *name = strrchr(path, '/') + 1;
+  char *parent = parent_directory(path);
+  if (parent == NULL) return SL_OUT_OF_MEMORY;
+  SlStatus status = load_parent_ignores(parent, discovery);
+  if (status == SL_OK && !discovery->excluded)
+    status = load_ignores(parent, parent, &discovery->ignores);
+  if (status == SL_OK && !discovery->excluded)
+    discovery->excluded = path_is_ignored(discovery, path, name, 1);
+  free(parent);
   return status;
 }
 
@@ -248,16 +297,43 @@ static SlStatus discover_input(const char *path, int use_gitignore, SlFileList *
   if (lstat(path, &details) != 0) return SL_IO_ERROR;
   if (S_ISREG(details.st_mode) && is_source_file(path)) return append_file(files, path);
   if (!S_ISDIR(details.st_mode)) return SL_OK;
+  char *resolved = realpath(path, NULL);
+  if (resolved == NULL) return SL_IO_ERROR;
   Discovery discovery = {.use_gitignore = use_gitignore};
-  const SlStatus status = discover_directory(path, "", &discovery, files);
+  SlStatus status = use_gitignore ? load_parent_ignores(resolved, &discovery) : SL_OK;
+  if (status == SL_OK && !discovery.excluded)
+    status = discover_directory(path, resolved, &discovery, files);
+  free(resolved);
   ignore_list_free(&discovery.ignores);
   return status;
 }
 
 static int compare_paths(const void *left, const void *right) {
-  const char *const *left_path = left;
-  const char *const *right_path = right;
-  return strcmp(*left_path, *right_path);
+  const SlFile *left_file = left;
+  const SlFile *right_file = right;
+  return strcmp(left_file->path, right_file->path);
+}
+
+static int compare_resolved_paths(const void *left, const void *right) {
+  const SlFile *left_file = left;
+  const SlFile *right_file = right;
+  const int order = strcmp(left_file->resolved_path, right_file->resolved_path);
+  return order == 0 ? compare_paths(left, right) : order;
+}
+
+static void deduplicate_files(SlFileList *files) {
+  qsort(files->items, files->count, sizeof(*files->items), compare_resolved_paths);
+  size_t count = 0;
+  for (size_t index = 0; index < files->count; index++) {
+    SlFile *file = &files->items[index];
+    if (count > 0 && strcmp(file->resolved_path, files->items[count - 1].resolved_path) == 0) {
+      file_free(file);
+      continue;
+    }
+    files->items[count++] = *file;
+  }
+  files->count = count;
+  qsort(files->items, files->count, sizeof(*files->items), compare_paths);
 }
 
 SlStatus sl_discover_files(const char *const *inputs, size_t input_count, int use_gitignore,
@@ -269,14 +345,14 @@ SlStatus sl_discover_files(const char *const *inputs, size_t input_count, int us
     if (status != SL_OK) return sl_file_list_free(files), status;
   }
   if (files->count == 0) return sl_file_list_free(files), SL_INVALID_ARGUMENT;
-  qsort(files->paths, files->count, sizeof(*files->paths), compare_paths);
+  deduplicate_files(files);
   return SL_OK;
 }
 
 void sl_file_list_free(SlFileList *files) {
   if (files == NULL) return;
   for (size_t index = 0; index < files->count; index++)
-    free(files->paths[index]);
-  free(files->paths);
+    file_free(&files->items[index]);
+  free(files->items);
   *files = (SlFileList){0};
 }

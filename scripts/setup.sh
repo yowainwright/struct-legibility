@@ -20,7 +20,7 @@ install_hook() {
   local name="$1"
   local source="$source_dir/$name"
   local destination="$hooks_dir/$name"
-  if [ -e "$destination" ] && ! grep -q 'struct-legibility-managed-hook' "$destination"; then
+  if [ -e "$destination" ] && ! grep -Eq '^# struct-(lint|legibility)-managed-hook$' "$destination"; then
     printf 'Skipping unmanaged hook: %s\n' "$name"
     return
   fi

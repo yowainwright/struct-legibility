@@ -45,8 +45,8 @@ build_native_bridge() {
   local build_dir
   build_dir="${SL_BUILD_DIR:-$root/.build/native}"
   cmake -S "$root" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release >&2
-  cmake --build "$build_dir" --target struct_legibility_scriptc --parallel >&2
-  printf '%s\n' "$build_dir/struct-legibility-ffi.json"
+  cmake --build "$build_dir" --target struct_lint_scriptc --parallel >&2
+  printf '%s\n' "$build_dir/struct-lint-ffi.json"
 }
 
 main() {

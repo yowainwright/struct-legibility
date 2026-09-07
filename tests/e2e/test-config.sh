@@ -2,11 +2,11 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-output="${1:-${TMPDIR:-/tmp}/struct-legibility-custom}"
+output="${1:-${TMPDIR:-/tmp}/struct-lint-custom}"
 entry="$repo_root/tests/fixtures/config/custom.ts"
 fixture="$repo_root/tests/fixtures/typescript/section-order.ts"
 
-SL_BUILD_DIR="${SL_BUILD_DIR:-${TMPDIR:-/tmp}/struct-legibility-build}" \
+SL_BUILD_DIR="${SL_BUILD_DIR:-${TMPDIR:-/tmp}/struct-lint-build}" \
   "$repo_root/scripts/build.sh" "$entry" -o "$output"
 
 set +e
@@ -97,6 +97,13 @@ set -e
 expected="$main:1:1: error[call-edge] crossFileMain calls helper in $helper"
 if [ "$status" -ne 1 ] || [ "$diagnostic" != "$expected" ]; then
   printf 'import-aware call graph failed\nstatus: %s\noutput: %s\n' "$status" "$diagnostic" >&2
+  exit 1
+fi
+
+status=0
+diagnostic="$("$output" "$fixture" "$fixture" "$helper" 2>&1)" || status=$?
+if [ "$status" -ne 1 ] || [ "$diagnostic" != "$expected" ]; then
+  printf 'overlapping paths changed the call graph\n%s\n' "$diagnostic" >&2
   exit 1
 fi
 

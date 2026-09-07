@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-temporary_dir="$(mktemp -d "${TMPDIR:-/tmp}/struct-legibility-static.XXXXXX")"
+temporary_dir="$(mktemp -d "${TMPDIR:-/tmp}/struct-lint-static.XXXXXX")"
 
 cleanup() {
   rm -rf "$temporary_dir"
@@ -16,7 +16,7 @@ assert_rejected() {
   local output="$temporary_dir/$name"
   set +e
   local diagnostic
-  diagnostic="$(SL_BUILD_DIR="${SL_BUILD_DIR:-${TMPDIR:-/tmp}/struct-legibility-build}" \
+  diagnostic="$(SL_BUILD_DIR="${SL_BUILD_DIR:-${TMPDIR:-/tmp}/struct-lint-build}" \
     "$repo_root/scripts/build.sh" "$entry" -o "$output" 2>&1)"
   local status=$?
   set -e

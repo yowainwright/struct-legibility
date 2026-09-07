@@ -2,9 +2,9 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-default_binary="${1:-$repo_root/.build/struct-legibility}"
+default_binary="${1:-$repo_root/.build/struct-lint}"
 fixture_dir="$repo_root/tests/fixtures/readme"
-temporary_dir="$(mktemp -d "${TMPDIR:-/tmp}/struct-legibility-readme.XXXXXX")"
+temporary_dir="$(mktemp -d "${TMPDIR:-/tmp}/struct-lint-readme.XXXXXX")"
 
 cleanup() {
   rm -rf "$temporary_dir"
@@ -40,8 +40,8 @@ assert_custom_rule() {
 
 assert_clean_source
 
-custom_binary="$temporary_dir/struct-legibility-custom"
-config="$fixture_dir/struct-legibility.config.ts"
+custom_binary="$temporary_dir/struct-lint-custom"
+config="$fixture_dir/struct-lint.config.ts"
 SL_BUILD_DIR="${SL_BUILD_DIR:-$repo_root/.build/check}" \
   "$repo_root/scripts/build.sh" "$config" -o "$custom_binary"
 assert_custom_rule "$custom_binary"

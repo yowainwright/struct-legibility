@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# struct-legibility-managed-hook
+# struct-lint-managed-hook
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"

@@ -16,7 +16,7 @@ information, and sustained disruption are not acceptable.
 ## Enforcement
 
 Send a private report through the repository's
-[security reporting form](https://github.com/yowainwright/struct-legibility/security/advisories/new).
+[security reporting form](https://github.com/yowainwright/struct-lint/security/advisories/new).
 Prefix the title with `Conduct`. Do not include sensitive reports in a public
 issue.
 

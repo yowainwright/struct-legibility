@@ -56,6 +56,8 @@ export interface Project {
 }
 
 declare global {
+  function slScriptcInfo(option: string): number;
+
   function slScriptcAnalyze(
     paths: string,
     useGitignore: boolean,
@@ -65,6 +67,8 @@ declare global {
 
   function slScriptcWrite(text: string, useStderr: boolean): number;
 }
+
+export const printInfo = (option: string): number => slScriptcInfo(option);
 
 const reportFromFile = (path: string): NativeReport => {
   const report = readFileSync(path, "utf8");
@@ -88,7 +92,7 @@ export const analyze = (
   useGitignore: boolean,
   collectFacts: boolean,
 ): NativeReport => {
-  const temporaryDirectory = mkdtempSync(join(tmpdir(), "struct-legibility-"));
+  const temporaryDirectory = mkdtempSync(join(tmpdir(), "struct-lint-"));
   const reportPath = join(temporaryDirectory, "report.json");
   try {
     analyzeToFile(paths, useGitignore, collectFacts, reportPath);
@@ -99,7 +103,7 @@ export const analyze = (
 };
 
 export const defaultProfile = (): string => {
-  const configuredProfile = process.env.STRUCT_LEGIBILITY_PROFILE;
+  const configuredProfile = process.env.STRUCT_LINT_PROFILE;
   return configuredProfile || "local";
 };
 

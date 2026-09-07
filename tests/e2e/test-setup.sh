@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-temporary_dir="$(mktemp -d "${TMPDIR:-/tmp}/struct-legibility-setup.XXXXXX")"
+temporary_dir="$(mktemp -d "${TMPDIR:-/tmp}/struct-lint-setup.XXXXXX")"
 
 cleanup() {
   rm -rf "$temporary_dir"
@@ -23,6 +23,11 @@ git -C "$temporary_dir" init --quiet
 assert_hook pre-commit
 assert_hook commit-msg
 assert_hook post-merge
+
+sed 's/struct-lint-managed-hook/struct-legibility-managed-hook/' \
+  "$repo_root/scripts/hooks/pre-commit" > "$temporary_dir/.git/hooks/pre-commit"
+"$repo_root/scripts/setup.sh" "$temporary_dir"
+assert_hook pre-commit
 
 message_file="$temporary_dir/COMMIT_EDITMSG"
 printf 'fix: valid message\n' > "$message_file"

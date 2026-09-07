@@ -1,5 +1,5 @@
 {
-  "name": "struct-legibility",
+  "name": "struct-lint",
   "version": "0.1.0",
   "engines": {
     "node": ">=22.6"
@@ -13,7 +13,7 @@
   },
   "private": true,
   "scripts": {
-    "build": "./scripts/build.sh runtime/cli.ts -o .build/struct-legibility",
+    "build": "./scripts/build.sh runtime/cli.ts -o .build/struct-lint",
     "benchmark": "./scripts/benchmark.sh",
     "deps:check": "codependence",
     "deps:update": "codependence --update",

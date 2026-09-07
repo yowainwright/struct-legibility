@@ -1,4 +1,5 @@
-#include "struct_legibility.h"
+#include "struct_lint.h"
+#include "cli_info.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -16,6 +17,15 @@ static char *copy_span(const uint8_t *bytes, size_t length) {
   memcpy(copy, bytes, length);
   copy[length] = '\0';
   return copy;
+}
+
+int32_t sl_scriptc_info(const uint8_t *bytes, size_t length) {
+  if (bytes == NULL) return -1;
+  char *option = copy_span(bytes, length);
+  if (option == NULL) return 2;
+  const int status = sl_cli_info(option);
+  free(option);
+  return status;
 }
 
 static void path_list_free(PathList *paths) {

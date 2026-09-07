@@ -1,10 +1,11 @@
-#include "struct_legibility.h"
+#include "struct_lint.h"
+#include "cli_info.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-typedef enum { PROFILE_LOCAL, PROFILE_CI } Profile;
+typedef enum { PROFILE_UNSET, PROFILE_LOCAL, PROFILE_CI } Profile;
 typedef enum { FORMAT_HUMAN, FORMAT_JSON } OutputFormat;
 typedef enum { OPTION_NONE, OPTION_PROFILE, OPTION_FORMAT, OPTION_NO_IGNORE } OptionKind;
 
@@ -33,7 +34,7 @@ static int parse_format(const char *value, OutputFormat *format) {
 }
 
 static int profile_from_environment(Profile *profile) {
-  const char *value = getenv("STRUCT_LEGIBILITY_PROFILE");
+  const char *value = getenv("STRUCT_LINT_PROFILE");
   if (value == NULL || value[0] == '\0') return *profile = PROFILE_LOCAL, 1;
   return parse_profile(value, profile);
 }
@@ -68,7 +69,6 @@ static int apply_option(int argc, char **argv, int *index, CliOptions *options) 
 static int parse_options(int argc, char **argv, CliOptions *options) {
   const CliOptions defaults = {.format = FORMAT_HUMAN, .use_gitignore = 1};
   *options = defaults;
-  if (!profile_from_environment(&options->profile)) return 0;
   int index = 1;
   while (index < argc) {
     const int result = apply_option(argc, argv, &index, options);
@@ -76,11 +76,12 @@ static int parse_options(int argc, char **argv, CliOptions *options) {
     if (result == 0) return 0;
   }
   options->first_path = index;
+  if (options->profile == PROFILE_UNSET) return profile_from_environment(&options->profile);
   return 1;
 }
 
 static int print_usage(void) {
-  const char *usage = "usage: struct-legibility [options] [path...]\n"
+  const char *usage = "usage: struct-lint [options] [path...]\n"
                       "options: --profile local|ci, --format human|json, --no-ignore\n";
   fputs(usage, stderr);
   return 2;
@@ -174,7 +175,7 @@ static int execute_request(const SlRequest *request, const CliOptions *options) 
   const SlStatus status = sl_analyze(request, &report);
   if (status != SL_OK) {
     sl_report_free(&report);
-    return fprintf(stderr, "struct-legibility: analysis failed (%d)\n", status), 2;
+    return fprintf(stderr, "struct-lint: analysis failed (%d)\n", status), 2;
   }
   print_report(&report, options);
   const int exit_code = report_exit_code(&report, options->profile);
@@ -183,6 +184,8 @@ static int execute_request(const SlRequest *request, const CliOptions *options) 
 }
 
 int main(int argc, char **argv) {
+  const int info = argc > 1 ? sl_cli_info(argv[1]) : -1;
+  if (info >= 0) return info;
   CliOptions options;
   if (!parse_options(argc, argv, &options)) return print_usage();
   const char *const default_paths[] = {"."};
