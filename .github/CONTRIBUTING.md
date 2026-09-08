@@ -8,6 +8,11 @@ Requires a C11 compiler, CMake 3.24 or newer, Git, and ShellCheck.
 shellcheck scripts/*.sh scripts/hooks/* tests/e2e/*.sh
 ```
 
+Format changed C files from the repository root with
+`clang-format --style=file:scripts/.clang-format -i <files>`.
+Configure editors to use this path explicitly; clang-format's automatic
+lookup only searches the source file's directory and its parents.
+
 The check script builds into `.build`. Set `SL_BUILD_DIR` to use another
 directory. `./scripts/build.sh` builds just the CLI; `./scripts/benchmark.sh`
 measures the resulting executable.
