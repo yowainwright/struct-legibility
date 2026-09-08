@@ -7,10 +7,15 @@ Written in C, using Tree-sitter to parse source files.
 
 | Language | Files |
 | --- | --- |
-| TypeScript | `.ts` |
+| JavaScript | `.js`, `.jsx`, `.mjs`, `.cjs` |
+| TypeScript | `.ts`, `.tsx`, `.mts`, `.cts` |
 | Go | `.go` |
 | Python | `.py`, `.pyi` |
 | Bash | `.sh`, `.bash` |
+
+TypeScript declarations (`.d.ts`, `.d.mts`, `.d.cts`) and names such as
+`main.test.js` or `main.spec.tsx` are included. JSX syntax works in JavaScript
+files and `.tsx`; `.ts` uses the separate TypeScript grammar.
 
 ## Example
 
@@ -112,13 +117,18 @@ Use `#` instead of `//` in Python and Bash.
 
 The check script builds the C code and runs API, language, CLI, and README
 tests. The benchmark checks runtime, peak memory, and executable size; CI
-enforces limits of 2 seconds, 64 MiB, and 5 MiB on Linux x64.
+enforces limits of 2 seconds, 64 MiB, and 6 MiB on Linux x64.
 
 The [C API](include/struct_lint.h) exposes `sl_analyze` and `sl_report_free`.
 Set `SlRequest.collect_facts` to collect declarations, imports, exports, and
 resolved calls alongside diagnostics.
-Import bindings and cross-file call resolution currently support TypeScript;
-Go, Python, and Bash resolve calls within each file.
+Import bindings and cross-file call resolution support relative ES imports in
+JavaScript and TypeScript, including explicit extensions and directory index
+files. Go, Python, and Bash resolve calls within each file. CommonJS
+`require`/`module.exports` links are not resolved.
+
+Framework files such as `.vue`, `.svelte`, `.astro`, and `.mdx` need embedded
+language support and are not yet scanned.
 
 See [Contributing](.github/CONTRIBUTING.md) for development tools and adding a
 language.

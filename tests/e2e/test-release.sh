@@ -19,3 +19,4 @@ done
 "$repo_root/tests/e2e/test-options.sh" "$binary"
 "$repo_root/tests/e2e/test-cli.sh" "$binary"
 "$repo_root/tests/e2e/test-discovery.sh" "$binary"
+"$repo_root/tests/e2e/test-script-cli.sh" "$binary"

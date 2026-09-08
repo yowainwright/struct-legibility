@@ -2,12 +2,22 @@
 
 #include <string.h>
 
+static const struct {
+  const char *path;
+  const char *language;
+} cases[] = {
+    {"main.ts", "typescript"},   {"main.mts", "typescript"},   {"main.cts", "typescript"},
+    {"main.d.ts", "typescript"}, {"main.d.mts", "typescript"}, {"main.d.cts", "typescript"},
+    {"main.tsx", "tsx"},         {"main.js", "javascript"},    {"main.jsx", "javascript"},
+    {"main.cjs", "javascript"},  {"main.mjs", "javascript"},   {"main.go", "go"},
+    {"main.py", "python"},       {"main.pyi", "python"},       {"main.sh", "bash"},
+    {"main.bash", "bash"},
+};
+
 static int check_extensions(void) {
-  const char *const paths[] = {"main.ts", "main.go", "main.py", "main.pyi", "main.sh", "main.bash"};
-  const char *const languages[] = {"typescript", "go", "python", "python", "bash", "bash"};
-  for (size_t index = 0; index < sizeof(paths) / sizeof(*paths); index++) {
-    const SlLanguagePack *pack = sl_language_for_path(paths[index]);
-    if (pack == NULL || strcmp(pack->id, languages[index]) != 0) return 0;
+  for (size_t index = 0; index < sizeof(cases) / sizeof(*cases); index++) {
+    const SlLanguagePack *pack = sl_language_for_path(cases[index].path);
+    if (pack == NULL || strcmp(pack->id, cases[index].language) != 0) return 0;
   }
   return sl_language_for_path("main.txt") == NULL;
 }

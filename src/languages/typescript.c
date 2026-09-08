@@ -5,6 +5,8 @@
 #include <sys/stat.h>
 
 const TSLanguage *tree_sitter_typescript(void);
+const TSLanguage *tree_sitter_tsx(void);
+const TSLanguage *tree_sitter_javascript(void);
 
 static TSNode declaration_node(TSNode node) {
   if (!sl_node_is(node, "export_statement")) return node;
@@ -180,7 +182,11 @@ static char *regular_path(const char *path) {
   return NULL;
 }
 
-static const char *const extensions[] = {".ts"};
+static const char *const typescript_extensions[] = {".ts", ".mts", ".cts"};
+static const char *const tsx_extensions[] = {".tsx"};
+static const char *const javascript_extensions[] = {".js", ".jsx", ".mjs", ".cjs"};
+static const char *const extensions[] = {".ts", ".tsx", ".mts", ".cts",
+                                         ".js", ".jsx", ".mjs", ".cjs"};
 
 static char *resolve_with_extensions(const char *base) {
   for (size_t index = 0; index < sizeof(extensions) / sizeof(*extensions); index++) {
@@ -293,30 +299,35 @@ static int resolve_call(const SlCallResolutionRequest *request, SlResolvedFuncti
                          result);
 }
 
-const SlLanguagePack sl_typescript_pack = {
-    .id = "typescript",
-    .parse_error_message = "could not parse TypeScript source",
-    .line_comment_prefix = "//",
-    .extensions = extensions,
-    .extension_count = sizeof(extensions) / sizeof(*extensions),
-    .tree_sitter_language = tree_sitter_typescript,
-    .declaration_node = declaration_node,
-    .declaration_kind = declaration_kind,
-    .name_node = name_node,
-    .function_node = function_node,
-    .is_function_node = is_function_node,
-    .binding_name_node = binding_name_node,
-    .called_name_node = called_name_node,
-    .import_source_node = import_source_node,
-    .normalize_import_source = normalize_import_source,
-    .resolve_import = resolve_import,
-    .import_local_name_node = import_local_name_node,
-    .imported_name_node = imported_name_node,
-    .implicit_imported_name = implicit_imported_name,
-    .exported_reference_name_node = exported_reference_name_node,
-    .exported_name_node = exported_name_node,
-    .implicit_export_name = implicit_export_name,
-    .is_exported = is_exported,
-    .is_entrypoint_name = sl_is_main,
-    .resolve_call = resolve_call,
-};
+#define SCRIPT_PACK(grammar, label)                                                                \
+  {                                                                                                \
+      .id = #grammar,                                                                              \
+      .parse_error_message = "could not parse " label " source",                                   \
+      .line_comment_prefix = "//",                                                                 \
+      .extensions = grammar##_extensions,                                                          \
+      .extension_count = sizeof(grammar##_extensions) / sizeof(*grammar##_extensions),             \
+      .tree_sitter_language = tree_sitter_##grammar,                                               \
+      .declaration_node = declaration_node,                                                        \
+      .declaration_kind = declaration_kind,                                                        \
+      .name_node = name_node,                                                                      \
+      .function_node = function_node,                                                              \
+      .is_function_node = is_function_node,                                                        \
+      .binding_name_node = binding_name_node,                                                      \
+      .called_name_node = called_name_node,                                                        \
+      .import_source_node = import_source_node,                                                    \
+      .normalize_import_source = normalize_import_source,                                          \
+      .resolve_import = resolve_import,                                                            \
+      .import_local_name_node = import_local_name_node,                                            \
+      .imported_name_node = imported_name_node,                                                    \
+      .implicit_imported_name = implicit_imported_name,                                            \
+      .exported_reference_name_node = exported_reference_name_node,                                \
+      .exported_name_node = exported_name_node,                                                    \
+      .implicit_export_name = implicit_export_name,                                                \
+      .is_exported = is_exported,                                                                  \
+      .is_entrypoint_name = sl_is_main,                                                            \
+      .resolve_call = resolve_call,                                                                \
+  }
+
+const SlLanguagePack sl_typescript_pack = SCRIPT_PACK(typescript, "TypeScript");
+const SlLanguagePack sl_tsx_pack = SCRIPT_PACK(tsx, "TSX");
+const SlLanguagePack sl_javascript_pack = SCRIPT_PACK(javascript, "JavaScript");

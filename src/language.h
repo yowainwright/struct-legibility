@@ -59,6 +59,8 @@ typedef struct {
 } SlLanguagePack;
 
 extern const SlLanguagePack sl_typescript_pack;
+extern const SlLanguagePack sl_tsx_pack;
+extern const SlLanguagePack sl_javascript_pack;
 extern const SlLanguagePack sl_go_pack;
 extern const SlLanguagePack sl_python_pack;
 extern const SlLanguagePack sl_bash_pack;

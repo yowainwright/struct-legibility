@@ -39,6 +39,12 @@ function(add_language_grammar language revision source_dir)
 endfunction()
 
 add_language_grammar(typescript f975a621f4e7f532fe322e13c4f79495e0a7b2e7 typescript/src)
+FetchContent_GetProperties(tree_sitter_typescript_source)
+target_sources(tree_sitter_typescript PRIVATE
+  "${tree_sitter_typescript_source_SOURCE_DIR}/tsx/src/parser.c"
+  "${tree_sitter_typescript_source_SOURCE_DIR}/tsx/src/scanner.c"
+)
+add_language_grammar(javascript 44c892e0be055ac465d5eeddae6d3e194424e7de src)
 add_language_grammar(go 1547678a9da59885853f5f5cc8a99cc203fa2e2c src)
 add_language_grammar(python 293fdc02038ee2bf0e2e206711b69c90ac0d413f src)
 add_language_grammar(bash a06c2e4415e9bc0346c6b86d401879ffb44058f7 src)
@@ -54,7 +60,8 @@ add_library(struct_lint STATIC
 )
 target_include_directories(struct_lint PUBLIC include PRIVATE src)
 target_link_libraries(struct_lint PRIVATE
-  tree-sitter tree_sitter_typescript tree_sitter_go tree_sitter_python tree_sitter_bash Threads::Threads
+  tree-sitter tree_sitter_typescript tree_sitter_javascript
+  tree_sitter_go tree_sitter_python tree_sitter_bash Threads::Threads
 )
 target_compile_definitions(struct_lint PRIVATE _POSIX_C_SOURCE=200809L)
 if(UNIX AND NOT APPLE)
@@ -75,7 +82,7 @@ if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
 endif()
 
 if(BUILD_TESTING)
-  foreach(test api facts language allocation multilang)
+  foreach(test api facts language allocation multilang script)
     add_executable(struct-lint-${test}-test tests/c/${test}_test.c)
     target_link_libraries(struct-lint-${test}-test PRIVATE struct_lint)
     if(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU")
@@ -89,7 +96,7 @@ if(BUILD_TESTING)
   target_include_directories(struct-lint-allocation-test PRIVATE
     ${tree_sitter_SOURCE_DIR}/lib/include
   )
-  foreach(test api facts language multilang)
+  foreach(test api facts language multilang script)
     add_test(NAME struct-lint-${test} COMMAND struct-lint-${test}-test)
   endforeach()
   set_tests_properties(struct-lint-facts PROPERTIES
@@ -98,11 +105,15 @@ if(BUILD_TESTING)
   set_tests_properties(struct-lint-multilang PROPERTIES
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures"
   )
+  file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/script-fixtures/directory")
+  set_tests_properties(struct-lint-script PROPERTIES
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/script-fixtures"
+  )
   add_test(NAME struct-lint-allocation COMMAND struct-lint-allocation-test
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/typescript/function-order.ts
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/typescript/section-order.ts
   )
-  foreach(test options discovery readme cli)
+  foreach(test options discovery readme cli script-cli)
     add_test(NAME struct-lint-${test}
       COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/test-${test}.sh
               $<TARGET_FILE:struct-lint>
