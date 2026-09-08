@@ -26,6 +26,9 @@ jobs:
           - name: Linux x64
             os: ubuntu-24.04
             artifact: linux-x64
+          - name: Linux ARM64
+            os: ubuntu-24.04-arm
+            artifact: linux-arm64
           - name: macOS ARM64
             os: macos-15
             artifact: macos-arm64
@@ -45,7 +48,7 @@ jobs:
         run: ./scripts/check.sh
 
       - name: Benchmark
-        if: runner.os == 'Linux'
+        if: matrix.artifact == 'linux-x64'
         run: ./scripts/benchmark.sh
 
       - name: Verify release archive

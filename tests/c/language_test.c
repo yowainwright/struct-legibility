@@ -11,7 +11,8 @@ static const struct {
     {"main.tsx", "tsx"},         {"main.js", "javascript"},    {"main.jsx", "javascript"},
     {"main.cjs", "javascript"},  {"main.mjs", "javascript"},   {"main.go", "go"},
     {"main.py", "python"},       {"main.pyi", "python"},       {"main.sh", "bash"},
-    {"main.bash", "bash"},
+    {"main.bash", "bash"},       {"view.vue", "vue"},          {"view.svelte", "svelte"},
+    {"view.astro", "astro"},     {"view.mdx", "mdx"},
 };
 
 static int check_extensions(void) {

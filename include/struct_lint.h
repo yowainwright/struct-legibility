@@ -29,6 +29,7 @@ typedef struct {
 
 typedef struct {
   char *local_name;
+  /* Export name, "*" for an ES namespace, or "module.exports" for require(). */
   char *imported_name;
   char *source;
   char *target_path;
@@ -48,6 +49,10 @@ typedef struct {
   char *caller_name;
   char *callee_path;
   char *callee_name;
+  size_t caller_line;
+  size_t caller_column;
+  size_t callee_line;
+  size_t callee_column;
 } SlCallFact;
 
 typedef struct {

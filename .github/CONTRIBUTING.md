@@ -23,6 +23,16 @@ To install the optional pre-commit checks and commit-message hook, run
 
 The release version is defined in `CMakeLists.txt`.
 
+Tagged releases publish `struct-lint-{darwin,linux}-{arm64,amd64}.tar.gz`
+archives and `SHA256SUMS`. Each archive includes the executable, `LICENSE`,
+and `LICENSES/`.
+
+Homebrew registration lives in `yowainwright/homebrew-tap`, under
+`brews/struct-lint.json`. It stays inactive until all four release archives
+are published and the downloaded binary's version matches the tag. Then use
+the tap's `scripts/new-formula struct-lint <version>` (or `update-formula`
+for later releases), following `tmp/struct-lint-release.md` in the tap.
+
 ## Adding a language
 
 Language packs belong in `src/languages/` and implement `SlLanguagePack` from

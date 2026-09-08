@@ -89,7 +89,7 @@ verify_metrics() {
   require_metric "$bytes" binary_bytes
   assert_limit "$seconds" "${SL_BENCHMARK_SECONDS:-2}" runtime_seconds
   assert_limit "$rss_kib" "${SL_BENCHMARK_RSS_KIB:-65536}" peak_rss_kib
-  assert_limit "$bytes" "${SL_BENCHMARK_BYTES:-6291456}" binary_bytes
+  assert_limit "$bytes" "${SL_BENCHMARK_BYTES:-7340032}" binary_bytes
 }
 
 main() {

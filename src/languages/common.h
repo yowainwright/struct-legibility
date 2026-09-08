@@ -25,6 +25,18 @@ static inline int sl_field_is(TSNode parent, const char *name, TSNode child) {
 
 static inline TSNode sl_identity_node(TSNode node) { return node; }
 
+static inline TSNode sl_no_source_node(TSNode node, const char *source) {
+  (void)node;
+  (void)source;
+  return (TSNode){0};
+}
+
+static inline const char *sl_no_source_text(TSNode node, const char *source) {
+  (void)node;
+  (void)source;
+  return NULL;
+}
+
 static inline TSNode sl_name_node(TSNode node) { return sl_field(node, "name"); }
 
 static inline TSNode sl_no_node(TSNode node) {
@@ -39,9 +51,10 @@ static inline const char *sl_no_text(TSNode node) {
 
 static inline void sl_keep_source(char *source) { (void)source; }
 
-static inline char *sl_no_import(const char *path, const char *source) {
+static inline char *sl_no_import(const char *path, const char *source, TSNode declaration) {
   (void)path;
   (void)source;
+  (void)declaration;
   return NULL;
 }
 

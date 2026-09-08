@@ -36,6 +36,7 @@ typedef struct {
   const char *line_comment_prefix;
   const char *const *extensions;
   size_t extension_count;
+  int embedded;
   const TSLanguage *(*tree_sitter_language)(void);
   TSNode (*declaration_node)(TSNode input);
   SlDeclarationKind (*declaration_kind)(TSNode input, const char *source);
@@ -44,15 +45,16 @@ typedef struct {
   int (*is_function_node)(TSNode node);
   TSNode (*binding_name_node)(TSNode node);
   TSNode (*called_name_node)(TSNode node);
-  TSNode (*import_source_node)(TSNode declaration);
+  char *(*call_name)(TSNode node, const char *source);
+  TSNode (*import_source_node)(TSNode declaration, const char *source);
   void (*normalize_import_source)(char *source);
-  char *(*resolve_import)(const char *path, const char *source);
+  char *(*resolve_import)(const char *path, const char *source, TSNode declaration);
   TSNode (*import_local_name_node)(TSNode node);
   TSNode (*imported_name_node)(TSNode node);
   const char *(*implicit_imported_name)(TSNode node);
-  TSNode (*exported_reference_name_node)(TSNode node);
-  TSNode (*exported_name_node)(TSNode node);
-  const char *(*implicit_export_name)(TSNode input);
+  TSNode (*exported_reference_name_node)(TSNode node, const char *source);
+  TSNode (*exported_name_node)(TSNode node, const char *source);
+  const char *(*implicit_export_name)(TSNode input, const char *source);
   int (*is_exported)(TSNode input, const char *source);
   int (*is_entrypoint_name)(const char *name);
   int (*resolve_call)(const SlCallResolutionRequest *request, SlResolvedFunction *result);
@@ -64,9 +66,14 @@ extern const SlLanguagePack sl_javascript_pack;
 extern const SlLanguagePack sl_go_pack;
 extern const SlLanguagePack sl_python_pack;
 extern const SlLanguagePack sl_bash_pack;
+extern const SlLanguagePack sl_vue_pack;
+extern const SlLanguagePack sl_svelte_pack;
+extern const SlLanguagePack sl_astro_pack;
+extern const SlLanguagePack sl_mdx_pack;
 
 const SlLanguagePack *sl_language_for_path(const char *path);
 int sl_language_resolve_call(const SlLanguagePack *pack, const SlCallResolutionRequest *request,
                              SlResolvedFunction *result);
+int sl_script_resolve_call(const SlCallResolutionRequest *request, SlResolvedFunction *result);
 
 #endif

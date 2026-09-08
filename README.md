@@ -9,6 +9,8 @@ Written in C, using Tree-sitter to parse source files.
 | --- | --- |
 | JavaScript | `.js`, `.jsx`, `.mjs`, `.cjs` |
 | TypeScript | `.ts`, `.tsx`, `.mts`, `.cts` |
+| Vue, Svelte, Astro | `.vue`, `.svelte`, `.astro` scripts |
+| MDX | `.mdx` imports and exports |
 | Go | `.go` |
 | Python | `.py`, `.pyi` |
 | Bash | `.sh`, `.bash` |
@@ -117,18 +119,29 @@ Use `#` instead of `//` in Python and Bash.
 
 The check script builds the C code and runs API, language, CLI, and README
 tests. The benchmark checks runtime, peak memory, and executable size; CI
-enforces limits of 2 seconds, 64 MiB, and 6 MiB on Linux x64.
+enforces limits of 2 seconds, 64 MiB of memory, and a 7 MiB executable on Linux x64.
+The size allowance includes the embedded-language grammars.
 
 The [C API](include/struct_lint.h) exposes `sl_analyze` and `sl_report_free`.
 Set `SlRequest.collect_facts` to collect declarations, imports, exports, and
 resolved calls alongside diagnostics.
-Import bindings and cross-file call resolution support relative ES imports in
-JavaScript and TypeScript, including explicit extensions and directory index
-files. Go, Python, and Bash resolve calls within each file. CommonJS
-`require`/`module.exports` links are not resolved.
+JavaScript and TypeScript resolve relative ES imports and static CommonJS
+`require` bindings, including aliases, destructuring, and namespace calls.
+CommonJS exports can reference named functions or assign functions directly to
+`module.exports` or `exports.name`. Explicit paths and directory index files
+work; package manifests, dynamic paths, and reassigned exports are not resolved.
+CommonJS extension lookup follows Node's `.js`, `.json`, `.node` order; use an
+explicit extension for `.cjs` and TypeScript files. Go, Python, and Bash resolve
+calls within each file.
 
-Framework files such as `.vue`, `.svelte`, `.astro`, and `.mdx` need embedded
-language support and are not yet scanned.
+Vue and Svelte check inline JavaScript and TypeScript scripts. Astro checks
+frontmatter and inline scripts. Each script block has its own ordering checks
+and file-facts record, with positions in the original file. MDX imports and
+exports share one module scope; prose and fenced examples are excluded.
+Templates, styles, external scripts, and unsupported script languages are not
+analyzed for declaration order.
+Call facts include declaration positions to distinguish names repeated across
+script blocks.
 
 See [Contributing](.github/CONTRIBUTING.md) for development tools and adding a
 language.
