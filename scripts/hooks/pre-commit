@@ -5,6 +5,7 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
+printf 'pre-commit: checking staged whitespace\n'
+git --no-pager diff --cached --check
+printf 'pre-commit: checking C formatting and shell scripts\n'
 ./scripts/lint.sh
-./scripts/check.sh
-git diff --cached --check

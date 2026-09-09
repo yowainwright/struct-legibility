@@ -1,0 +1,61 @@
+---
+name: Update GitHub Actions
+
+"on":
+  workflow_dispatch:
+  schedule:
+    - cron: "0 9 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codependence-github-actions
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: macos-15
+    timeout-minutes: 20
+    env:
+      HOMEBREW_NO_REQUIRE_TAP_TRUST: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Require pull request token
+        env:
+          GH_TOKEN: ${{ secrets.CODEPENDENCE_TOKEN }}
+        run: test -n "$GH_TOKEN"
+
+      - name: Install Codependence and workflow linter
+        run: brew install yowainwright/tap/codependence actionlint
+
+      - name: Update GitHub Actions
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: codependence --update --target github-actions
+
+      - name: Validate workflows
+        run: |
+          actionlint
+          git diff --check
+
+      - name: Open dependency update pull request
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ secrets.CODEPENDENCE_TOKEN }}
+          branch: update-dependencies/github-actions
+          delete-branch: true
+          add-paths: |
+            .github/workflows/*.yml
+            .github/workflows/*.yaml
+          commit-message: "chore: update GitHub Actions"
+          title: "chore: update GitHub Actions"
+          body: |
+            Updates GitHub Actions with the Codependence policy in `.codependencerc`.
+
+            Installed through `brew install yowainwright/tap/codependence`.
+            Validation: actionlint and whitespace checks. The PR runs the normal CI suite.

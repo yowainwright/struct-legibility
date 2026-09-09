@@ -5,6 +5,9 @@ cmake-build-*/
 dist/
 *.d
 
+# Local planning notes
+/tmp/
+
 # Object files
 *.o
 *.ko

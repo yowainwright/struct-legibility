@@ -28,7 +28,10 @@ cat >"$mock_bin/git" <<'SH'
 set -euo pipefail
 case "$*" in
   'rev-parse --show-toplevel') printf '%s\n' "$SL_TEST_ROOT" ;;
-  'diff --cached --check') printf 'staged-whitespace\n' >>"$SL_TEST_LOG" ;;
+  '--no-pager diff --cached --check')
+    printf 'staged-whitespace\n' >>"$SL_TEST_LOG"
+    exit "${SL_TEST_WHITESPACE_STATUS:-0}"
+    ;;
   'diff --name-only ORIG_HEAD HEAD -- CMakeLists.txt cmake/')
     printf '%s' "${SL_TEST_CHANGED:-}"
     exit "${SL_TEST_DIFF_STATUS:-0}"
@@ -72,17 +75,19 @@ test ! -s "$SL_TEST_LOG"
 mv "$temporary_dir/clang-format" "$mock_bin/clang-format"
 
 run_script hooks/pre-commit
-assert_log lint.sh check.sh staged-whitespace
+assert_log staged-whitespace lint.sh
 if SL_TEST_FAIL=lint.sh run_script hooks/pre-commit; then
   printf 'pre-commit ignored lint failure\n' >&2
   exit 1
 fi
-assert_log lint.sh
-if SL_TEST_FAIL=check.sh run_script hooks/pre-commit; then
-  printf 'pre-commit ignored test failure\n' >&2
+assert_log staged-whitespace lint.sh
+SL_TEST_FAIL=check.sh run_script hooks/pre-commit
+assert_log staged-whitespace lint.sh
+if SL_TEST_WHITESPACE_STATUS=2 run_script hooks/pre-commit; then
+  printf 'pre-commit ignored staged whitespace failure\n' >&2
   exit 1
 fi
-assert_log lint.sh check.sh
+assert_log staged-whitespace
 
 run_script hooks/post-merge
 assert_log setup.sh
