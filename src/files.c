@@ -75,7 +75,8 @@ static void trim_line(char *line) {
   }
   while (length > 0 && line[length - 1] == ' ') {
     size_t start = length - 1;
-    while (start > 0 && line[start - 1] == '\\') start--;
+    while (start > 0 && line[start - 1] == '\\')
+      start--;
     if ((length - 1 - start) % 2 != 0) break;
     line[--length] = '\0';
   }
@@ -230,7 +231,7 @@ static SlStatus discover_entry(const char *directory, const char *relative,
 }
 
 static SlStatus read_directory(DIR *directory, const char *path, const char *relative,
-                                Discovery *discovery, SlFileList *files) {
+                               Discovery *discovery, SlFileList *files) {
   while (1) {
     errno = 0;
     const struct dirent *entry = readdir(directory);

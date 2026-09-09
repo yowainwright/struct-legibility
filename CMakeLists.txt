@@ -134,5 +134,7 @@ if(BUILD_TESTING)
               $<TARGET_FILE:struct-lint>
     )
   endforeach()
-  add_test(NAME struct-lint-setup COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/test-setup.sh)
+  foreach(test setup bootstrap)
+    add_test(NAME struct-lint-${test} COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/test-${test}.sh)
+  endforeach()
 endif()

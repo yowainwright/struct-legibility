@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# struct-lint-managed-hook
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+./scripts/setup.sh
+changed="$(git diff --name-only ORIG_HEAD HEAD -- CMakeLists.txt cmake/)"
+if [ -z "$changed" ]; then exit 0; fi
+
+./scripts/build.sh

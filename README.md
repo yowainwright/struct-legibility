@@ -113,9 +113,14 @@ Use `#` instead of `//` in Python and Bash.
 ## Development
 
 ```sh
+./scripts/bootstrap.sh
+./scripts/lint.sh
 ./scripts/check.sh
 ./scripts/benchmark.sh
 ```
+
+Bootstrap checks development tools, builds/tests the project, and installs
+Git hooks. See [Contributing](.github/CONTRIBUTING.md) for prerequisites and hooks.
 
 The check script builds the C code and runs API, language, CLI, and README
 tests. The benchmark checks runtime, peak memory, and executable size; CI

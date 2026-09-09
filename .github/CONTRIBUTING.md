@@ -1,17 +1,19 @@
 # Contributing
 
-Requires a C11 compiler, CMake 3.24 or newer, Git, and ShellCheck.
+Requires a C11 compiler, CMake 3.24 or newer, Git, clang-format, and ShellCheck.
 `mise install` can provision CMake and ShellCheck using `mise.toml`.
 
 ```sh
-./scripts/check.sh
-shellcheck scripts/*.sh scripts/hooks/* tests/e2e/*.sh
+./scripts/bootstrap.sh
 ```
 
-Format changed C files from the repository root with
-`clang-format --style=file:scripts/.clang-format -i <files>`.
-Configure editors to use this path explicitly; clang-format's automatic
-lookup only searches the source file's directory and its parents.
+Bootstrap checks the installed tools, runs lint and build/tests, and installs
+Git hooks. CMake fetches pinned parser dependencies on the first build.
+Bootstrap can be rerun; CI skips hook installation.
+
+Use `./scripts/format.sh` to format C sources and `./scripts/lint.sh` to
+check C formatting and shell scripts. The formatter reads
+`scripts/.clang-format` explicitly. Editors also need this configuration path.
 
 The check script builds into `.build`. Set `SL_BUILD_DIR` to use another
 directory. `./scripts/build.sh` builds just the CLI; `./scripts/benchmark.sh`
@@ -23,8 +25,13 @@ Keep changes focused and C functions small. Add C or end-to-end coverage for
 behavior changes. Describe the problem, resulting behavior, and validation in
 the pull request.
 
-To install the optional pre-commit checks and commit-message hook, run
-`./scripts/setup.sh`. Existing unmanaged hooks are preserved.
+Use `./scripts/setup.sh` to install hooks without building. It preserves
+unmanaged hooks and symlinks, and stops if `core.hooksPath` is configured.
+
+- `pre-commit` checks formatting, shell scripts, build/tests, and staged whitespace.
+- `commit-msg` checks Conventional Commit messages.
+- `post-merge` refreshes managed hooks and rebuilds when `CMakeLists.txt` or
+  `cmake/` changes.
 
 The release version is defined in `CMakeLists.txt`.
 
