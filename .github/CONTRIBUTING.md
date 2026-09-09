@@ -1,28 +1,55 @@
 # Contributing
 
-## Setup
-
-<!-- setup commands from mise.toml, package.json, and scripts/setup.sh -->
-
-Requirements are mise, CMake 3.24 or newer, Clang, Git, and ShellCheck.
+Requires a C11 compiler, CMake 3.24 or newer, Git, clang-format, and ShellCheck.
+`mise install` can provision CMake and ShellCheck using `mise.toml`.
 
 ```sh
-mise install
-nub ci
-nub run setup
-nub run test
+./scripts/bootstrap.sh
 ```
+
+Bootstrap checks the installed tools, runs lint and build/tests, and installs
+Git hooks. CMake fetches pinned parser dependencies on the first build.
+Bootstrap can be rerun; CI skips hook installation.
+
+Use `./scripts/format.sh` to format C sources and `./scripts/lint.sh` to
+check C formatting and shell scripts. The formatter reads
+`scripts/.clang-format` explicitly. Editors also need this configuration path.
+
+The check script builds into `.build`. Set `SL_BUILD_DIR` to use another
+directory. `./scripts/build.sh` builds just the CLI; `./scripts/benchmark.sh`
+measures the resulting executable.
 
 ## Changes
 
-1. Branch from `main`.
-2. Keep each change focused.
-3. Add TypeScript unit, C, or end-to-end coverage for behavior changes.
-4. Run `nub run test` and `shellcheck scripts/*.sh tests/e2e/*.sh`.
-5. Open a pull request with the problem, approach, and validation.
+Keep changes focused and C functions small. Add C or end-to-end coverage for
+behavior changes. Describe the problem, resulting behavior, and validation in
+the pull request.
 
-Keep C and TypeScript functions small and single-purpose. Prefer early returns,
-immutable values, and direct control flow.
+Use `./scripts/setup.sh` to install hooks without building. It preserves
+unmanaged hooks and symlinks, and stops if `core.hooksPath` is configured.
 
-Language packs belong in `src/languages/`. Register each pack in
-`src/language.c`, link its Tree-sitter grammar, and add API and CLI fixtures.
+- `pre-commit` checks formatting, shell scripts, build/tests, and staged whitespace.
+- `commit-msg` checks Conventional Commit messages.
+- `post-merge` refreshes managed hooks and rebuilds when `CMakeLists.txt` or
+  `cmake/` changes.
+
+The release version is defined in `CMakeLists.txt`.
+
+Tagged releases publish `struct-lint-{darwin,linux}-{arm64,amd64}.tar.gz`
+archives and `SHA256SUMS`. Each archive includes the executable, `LICENSE`,
+and `LICENSES/`.
+
+Homebrew registration lives in `yowainwright/homebrew-tap`, under
+`brews/struct-lint.json`. It stays inactive until all four release archives
+are published and the downloaded binary's version matches the tag. Then use
+the tap's `scripts/new-formula struct-lint <version>` (or `update-formula`
+for later releases), following `tmp/struct-lint-release.md` in the tap.
+
+## Adding a language
+
+Language packs belong in `src/languages/` and implement `SlLanguagePack` from
+`src/language.h`. Each pack identifies declarations, imports, exports, calls,
+and entry points using a Tree-sitter grammar.
+
+Register the pack in `src/language.c`, link its grammar in `CMakeLists.txt`,
+and add C and CLI fixtures. The analyzer and CLI are shared across languages.

@@ -5,9 +5,8 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
-changed_files="$(git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD)"
-if ! grep -Eq '^(package.json|pnpm-lock.yaml|mise.toml)$' <<< "$changed_files"; then
-  exit 0
-fi
+./scripts/setup.sh
+changed="$(git diff --name-only ORIG_HEAD HEAD -- CMakeLists.txt cmake/)"
+if [ -z "$changed" ]; then exit 0; fi
 
-nub ci
+./scripts/build.sh

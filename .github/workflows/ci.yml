@@ -23,68 +23,40 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Linux x64 / Node 22
+          - name: Linux x64
             os: ubuntu-24.04
-            node: 22
-            upload: false
-            artifact: linux-x64-node-22
-          - name: Linux x64 / Node 24
-            os: ubuntu-24.04
-            node: 24
-            upload: false
-            artifact: linux-x64-node-24
-          - name: Linux x64 / Node 26
-            os: ubuntu-24.04
-            node: 26
-            upload: true
             artifact: linux-x64
-          - name: macOS ARM64 / Node 26
+          - name: Linux ARM64
+            os: ubuntu-24.04-arm
+            artifact: linux-arm64
+          - name: macOS ARM64
             os: macos-15
-            node: 26
-            upload: true
             artifact: macos-arm64
-          - name: macOS x64 / Node 26
+          - name: macOS x64
             os: macos-15-intel
-            node: 26
-            upload: true
             artifact: macos-x64
 
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Nub
-        uses: nubjs/setup-nub@47e5e7393d50f4e9544ddaf756aa277972afba2d # v0.4.0
-        with:
-          nub-version: 0.7.5
-          node-version: ${{ matrix.node }}
-
-      - name: Install dependencies
-        run: nub ci
-
       - name: Check shell scripts
         if: runner.os == 'Linux'
         run: shellcheck scripts/*.sh scripts/hooks/* tests/e2e/*.sh
 
-      - name: Check dependency overrides
-        if: matrix.os == 'ubuntu-24.04' && matrix.node == 26
-        run: nub run overrides:check
-
       - name: Test
-        run: nub run test
+        run: ./scripts/check.sh
 
       - name: Benchmark
-        if: matrix.os == 'ubuntu-24.04' && matrix.node == 26
-        run: nub run benchmark
+        if: matrix.artifact == 'linux-x64'
+        run: ./scripts/benchmark.sh
 
       - name: Verify release archive
-        if: matrix.upload
         run: |
           tar -czf .build/release.tar.gz LICENSE LICENSES -C .build struct-lint
           ./tests/e2e/test-release.sh .build/release.tar.gz
 
       - name: Upload binary
-        if: matrix.upload
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: struct-lint-${{ matrix.artifact }}

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-binary_input="${1:-$repo_root/build/struct-lint}"
+binary_input="${1:-$repo_root/.build/struct-lint}"
 binary="$(cd "$(dirname "$binary_input")" && pwd)/$(basename "$binary_input")"
 
 assert_result() {

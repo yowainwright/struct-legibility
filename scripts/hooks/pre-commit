@@ -5,7 +5,6 @@ set -euo pipefail
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
-nub run typecheck
-nub run test:unit
-nub run overrides:check
-git diff --check
+./scripts/lint.sh
+./scripts/check.sh
+git diff --cached --check

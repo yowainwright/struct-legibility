@@ -28,14 +28,6 @@ typedef struct {
   int excluded;
 } Discovery;
 
-static char *copy_string(const char *value) {
-  const size_t length = strlen(value) + 1;
-  char *copy = malloc(length);
-  if (copy == NULL) return NULL;
-  memcpy(copy, value, length);
-  return copy;
-}
-
 static int is_source_file(const char *path) { return sl_language_for_path(path) != NULL; }
 
 static int is_ignored_name(const char *name, int use_gitignore) {
@@ -66,7 +58,7 @@ static void file_free(SlFile *file) {
 static SlStatus append_file(SlFileList *files, const char *path) {
   SlFile file = {.resolved_path = realpath(path, NULL)};
   if (file.resolved_path == NULL) return errno == ENOMEM ? SL_OUT_OF_MEMORY : SL_IO_ERROR;
-  file.path = copy_string(path);
+  file.path = strdup(path);
   if (file.path == NULL) return file_free(&file), SL_OUT_OF_MEMORY;
   const size_t size = (files->count + 1) * sizeof(*files->items);
   SlFile *items = realloc(files->items, size);
@@ -83,7 +75,8 @@ static void trim_line(char *line) {
   }
   while (length > 0 && line[length - 1] == ' ') {
     size_t start = length - 1;
-    while (start > 0 && line[start - 1] == '\\') start--;
+    while (start > 0 && line[start - 1] == '\\')
+      start--;
     if ((length - 1 - start) % 2 != 0) break;
     line[--length] = '\0';
   }
@@ -106,8 +99,8 @@ static SlStatus append_ignore(IgnoreList *ignores, IgnoreRule rule) {
 
 static IgnoreRule create_ignore_rule(const char *pattern, const char *base, int negated,
                                      int directory_only, int basename_only) {
-  return (IgnoreRule){.pattern = copy_string(pattern),
-                      .base = copy_string(base),
+  return (IgnoreRule){.pattern = strdup(pattern),
+                      .base = strdup(base),
                       .negated = negated,
                       .directory_only = directory_only,
                       .basename_only = basename_only};
@@ -238,7 +231,7 @@ static SlStatus discover_entry(const char *directory, const char *relative,
 }
 
 static SlStatus read_directory(DIR *directory, const char *path, const char *relative,
-                                Discovery *discovery, SlFileList *files) {
+                               Discovery *discovery, SlFileList *files) {
   while (1) {
     errno = 0;
     const struct dirent *entry = readdir(directory);
@@ -264,7 +257,7 @@ static SlStatus discover_directory(const char *path, char *relative, Discovery *
 }
 
 static char *parent_directory(const char *path) {
-  char *parent = copy_string(path);
+  char *parent = strdup(path);
   if (parent == NULL) return NULL;
   char *separator = strrchr(parent, '/');
   if (separator == parent) separator++;

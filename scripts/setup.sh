@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [ "$#" -gt 1 ]; then
+  printf 'usage: scripts/setup.sh [repository]\n' >&2
+  exit 2
+fi
+if [[ "${CI:-}" = true || "${CI:-}" = 1 ]]; then
+  printf 'CI environment detected, skipping git hook installation\n'
+  exit 0
+fi
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 default_root="$(cd "$script_dir/.." && pwd)"
 repo_root="$(cd "${1:-$default_root}" && pwd)"
@@ -20,6 +29,10 @@ install_hook() {
   local name="$1"
   local source="$source_dir/$name"
   local destination="$hooks_dir/$name"
+  if [ -L "$destination" ]; then
+    printf 'Skipping symlink hook: %s\n' "$name"
+    return
+  fi
   if [ -e "$destination" ] && ! grep -Eq '^# struct-(lint|legibility)-managed-hook$' "$destination"; then
     printf 'Skipping unmanaged hook: %s\n' "$name"
     return

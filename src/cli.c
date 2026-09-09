@@ -1,5 +1,5 @@
-#include "struct_lint.h"
 #include "cli_info.h"
+#include "struct_lint.h"
 
 #include <stdio.h>
 #include <stdlib.h>

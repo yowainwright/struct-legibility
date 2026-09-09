@@ -2,46 +2,29 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-default_binary="${1:-$repo_root/.build/struct-lint}"
-fixture_dir="$repo_root/tests/fixtures/readme"
-temporary_dir="$(mktemp -d "${TMPDIR:-/tmp}/struct-lint-readme.XXXXXX")"
+binary_input="${1:-$repo_root/.build/struct-lint}"
+binary="$(cd "$(dirname "$binary_input")" && pwd)/$(basename "$binary_input")"
+mkdir -p "$repo_root/.build"
+temporary_dir="$(mktemp -d "$repo_root/.build/readme.XXXXXX")"
+trap 'rm -rf "$temporary_dir"' EXIT
 
-cleanup() {
-  rm -rf "$temporary_dir"
+extract_example() {
+  awk -v wanted="$1" '
+    /^```ts$/ { block++; active = block == wanted; next }
+    /^```$/ { active = 0 }
+    active { print }
+  ' "$repo_root/README.md" >"$temporary_dir/main.ts"
 }
 
-trap cleanup EXIT
+extract_example 1
+cmp "$repo_root/tests/fixtures/typescript/function-order.ts" "$temporary_dir/main.ts"
+status=0
+output="$(cd "$temporary_dir" && "$binary" --profile ci main.ts 2>&1)" || status=$?
+test "$status" -eq 1
+expected='main.ts:1:1: error[function-order] helper must appear below caller main'
+test "$output" = "$expected"
 
-assert_clean_source() {
-  local source="$fixture_dir/main.ts"
-  set +e
-  local output
-  output="$("$default_binary" --profile ci "$source" 2>&1)"
-  local exit_code=$?
-  set -e
-  if [ "$exit_code" -eq 0 ] && [ -z "$output" ]; then return; fi
-  printf 'README source failed\nstatus: %s\noutput: %s\n' "$exit_code" "$output" >&2
-  exit 1
-}
-
-assert_custom_rule() {
-  local binary="$1"
-  local source="$fixture_dir/launch.ts"
-  local expected="$source:1:1: error[entrypoint-name] exported function launch must be named main"
-  set +e
-  local output
-  output="$("$binary" --profile ci "$source" 2>&1)"
-  local exit_code=$?
-  set -e
-  if [ "$exit_code" -eq 1 ] && [ "$output" = "$expected" ]; then return; fi
-  printf 'README custom rule failed\nstatus: %s\noutput: %s\n' "$exit_code" "$output" >&2
-  exit 1
-}
-
-assert_clean_source
-
-custom_binary="$temporary_dir/struct-lint-custom"
-config="$fixture_dir/struct-lint.config.ts"
-SL_BUILD_DIR="${SL_BUILD_DIR:-$repo_root/.build/check}" \
-  "$repo_root/scripts/build.sh" "$config" -o "$custom_binary"
-assert_custom_rule "$custom_binary"
+extract_example 2
+cmp "$repo_root/tests/fixtures/readme/main.ts" "$temporary_dir/main.ts"
+output="$(cd "$temporary_dir" && PATH=/nonexistent "$binary" --profile ci main.ts 2>&1)"
+test -z "$output"

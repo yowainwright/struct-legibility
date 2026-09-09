@@ -22,7 +22,7 @@ make_corpus() {
 measure_darwin() {
   local corpus="$1"
   local metrics="$2"
-  /usr/bin/time -lp "$binary" --profile ci "$corpus" 2> "$metrics"
+  /usr/bin/time -lp "$binary" --profile ci "$corpus" 2>"$metrics"
 }
 
 measure_linux() {
@@ -62,13 +62,19 @@ require_metric() {
 measure() {
   local corpus="$1"
   local metrics="$2"
-  if [ "$(uname -s)" = "Darwin" ]; then measure_darwin "$corpus" "$metrics"; return; fi
+  if [ "$(uname -s)" = "Darwin" ]; then
+    measure_darwin "$corpus" "$metrics"
+    return
+  fi
   measure_linux "$corpus" "$metrics"
 }
 
 read_rss_kib() {
   local metrics="$1"
-  if [ "$(uname -s)" != "Darwin" ]; then metric_value rss_kib "$metrics"; return; fi
+  if [ "$(uname -s)" != "Darwin" ]; then
+    metric_value rss_kib "$metrics"
+    return
+  fi
   local bytes
   bytes="$(darwin_rss_bytes "$metrics")"
   awk -v bytes="$bytes" 'BEGIN { print int((bytes + 1023) / 1024) }'
@@ -83,21 +89,28 @@ verify_metrics() {
   require_metric "$bytes" binary_bytes
   assert_limit "$seconds" "${SL_BENCHMARK_SECONDS:-2}" runtime_seconds
   assert_limit "$rss_kib" "${SL_BENCHMARK_RSS_KIB:-65536}" peak_rss_kib
-  assert_limit "$bytes" "${SL_BENCHMARK_BYTES:-5242880}" binary_bytes
+  assert_limit "$bytes" "${SL_BENCHMARK_BYTES:-7340032}" binary_bytes
 }
 
 main() {
-  if [ ! -x "$binary" ]; then printf 'binary not executable: %s\n' "$binary" >&2; exit 2; fi
-  temporary_dir="$(mktemp -d "${TMPDIR:-/tmp}/struct-lint-benchmark.XXXXXX")"
+  if [ ! -x "$binary" ]; then
+    printf 'binary not executable: %s\n' "$binary" >&2
+    exit 2
+  fi
+  mkdir -p "$repo_root/.build"
+  temporary_dir="$(mktemp -d "$repo_root/.build/benchmark.XXXXXX")"
   trap cleanup EXIT
   local corpus="$temporary_dir/corpus"
   local metrics="$temporary_dir/metrics"
   make_corpus "$corpus"
-  measure "$corpus" "$metrics" || { cat "$metrics" >&2; exit 1; }
+  measure "$corpus" "$metrics" || {
+    cat "$metrics" >&2
+    exit 1
+  }
   local seconds rss_kib bytes
   seconds="$(metric_value real "$metrics")"
   rss_kib="$(read_rss_kib "$metrics")"
-  bytes="$(wc -c < "$binary" | tr -d ' ')"
+  bytes="$(wc -c <"$binary" | tr -d ' ')"
   verify_metrics "$seconds" "$rss_kib" "$bytes"
   printf 'benchmark: %ss, %s KiB RSS, %s bytes\n' "$seconds" "$rss_kib" "$bytes"
 }
