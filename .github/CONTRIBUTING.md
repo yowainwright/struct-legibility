@@ -28,10 +28,13 @@ the pull request.
 Use `./scripts/setup.sh` to install hooks without building. It preserves
 unmanaged hooks and symlinks, and stops if `core.hooksPath` is configured.
 
-- `pre-commit` checks formatting, shell scripts, build/tests, and staged whitespace.
+- `pre-commit` checks staged whitespace, C formatting, and shell scripts.
 - `commit-msg` checks Conventional Commit messages.
 - `post-merge` refreshes managed hooks and rebuilds when `CMakeLists.txt` or
   `cmake/` changes.
+
+Full builds and tests run through `./scripts/check.sh`, bootstrap, and CI.
+They do not run during commits.
 
 The release version is defined in `CMakeLists.txt`.
 
@@ -44,6 +47,17 @@ Homebrew registration lives in `yowainwright/homebrew-tap`, under
 are published and the downloaded binary's version matches the tag. Then use
 the tap's `scripts/new-formula struct-lint <version>` (or `update-formula`
 for later releases), following `tmp/struct-lint-release.md` in the tap.
+
+## Dependency updates
+
+[Codependence](https://github.com/yowainwright/codependence) updates GitHub Actions
+weekly or through a manual run of the `Update GitHub Actions` workflow. Its policy
+lives in [.codependencerc](../.codependencerc); CMake dependency pins remain manual.
+
+The workflow installs the CLI with `brew install yowainwright/tap/codependence`,
+validates changed workflows with actionlint, and opens one update PR. It uses the
+`CODEPENDENCE_TOKEN` repository secret, which needs Contents, Pull requests, and
+Workflows write access. Dependabot version-update configuration has been removed.
 
 ## Adding a language
 

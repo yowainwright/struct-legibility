@@ -1,0 +1,9 @@
+{
+  "targets": [
+    {
+      "manager": "github-actions",
+      "files": [".github/workflows/*.yml", ".github/workflows/*.yaml"],
+      "mode": "precise"
+    }
+  ]
+}
